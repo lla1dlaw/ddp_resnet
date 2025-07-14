@@ -30,8 +30,7 @@ def load_train_objs(dataset_name: str, batch_size: int, arch: str):
 
 
 def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str):
-    if torch.cuda.device_count() > 1:
-        ddp_setup(rank, world_size)
+    ddp_setup(rank, world_size)
     train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch)
     trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
     trainer.train(total_epochs)
