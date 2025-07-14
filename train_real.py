@@ -1,16 +1,13 @@
+import pretty_errors
 import torch
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from datautils import MyTrainDataset
-
 import torch.multiprocessing as mp
-from torch.utils.data.distributed import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 import os
+import math
 
-from residual import RealResnet, ComplexResnet
+from models import RealResNet, ComplexResNet
 from Trainer import Trainer
+from Datasets import get_dataloaders
 
 
 def ddp_setup(rank, world_size):
@@ -25,28 +22,18 @@ def ddp_setup(rank, world_size):
     init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
 
-def load_train_objs():
-    train_set = MyTrainDataset(2048)  # load your dataset
-    model = torch.nn.Linear(20, 1)  # load your model
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-    return train_set, model, optimizer
+def load_train_objs(dataset_name: str, batch_size: int, arch: str):
+    train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
+    model = RealResNet(arch)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, nesterov=True)
+    return train_loader, test_loader, model, optimizer
 
 
-def prepare_dataloader(dataset: Dataset, batch_size: int):
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        pin_memory=True,
-        shuffle=False,
-        sampler=DistributedSampler(dataset)
-    )
-
-
-def main(rank: int, world_size: int, save_every: int, total_epochs: int, batch_size: int):
-    ddp_setup(rank, world_size)
-    dataset, model, optimizer = load_train_objs()
-    train_data = prepare_dataloader(dataset, batch_size)
-    trainer = Trainer(model, train_data, optimizer, rank, save_every)
+def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str):
+    if torch.cuda.device_count() > 1:
+        ddp_setup(rank, world_size)
+    train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch)
+    trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
     trainer.train(total_epochs)
     destroy_process_group()
 
@@ -54,10 +41,14 @@ def main(rank: int, world_size: int, save_every: int, total_epochs: int, batch_s
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='simple distributed training job')
-    parser.add_argument('total_epochs', type=int, help='Total epochs to train the model')
-    parser.add_argument('save_every', type=int, help='How often to save a snapshot')
-    parser.add_argument('--batch_size', default=32, type=int, help='Input batch size on each device (default: 32)')
+    parser.add_argument('-arch', '--architecture', type=str, default='WS', choices=['WS', 'DN', 'IB'], help=f"Type of architecture for your resnets.\nChoices: 'WS', 'DN', or 'IB'.\nDefaults to 'WS'")
+    parser.add_argument('-act', '--activation', metavar='ACT', type=str, default='crelu', choices=['crelu', 'zrelu', 'modrelu', 'complex_cardioid'],
+                        help="Activation function for ComplexResNet.")
+    parser.add_argument('--epochs', type=int, default=5, help='Total epochs to train the model')
+    parser.add_argument('--save_every', type=int, default=math.inf, help='How often to save a snapshot')
+    parser.add_argument('--dataset', type=str, default='cifar10', help='Dataset to use for trainng.')
+    parser.add_argument('--batch_size', default=1024, type=int, help='Input batch size on each device (default: 1024)')
     args = parser.parse_args()
 
     world_size = torch.cuda.device_count()
-    mp.spawn(main, args=(world_size, args.save_every, args.total_epochs, args.batch_size), nprocs=world_size)
+    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.batch_size, args.architecture), nprocs=world_size)

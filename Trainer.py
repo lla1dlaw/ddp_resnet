@@ -2,14 +2,9 @@
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from datautils import MyTrainDataset
-
-import torch.multiprocessing as mp
-from torch.utils.data.distributed import DistributedSampler
+from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.distributed import init_process_group, destroy_process_group
-import os
+from rich.progress import Progress
 
 
 class Trainer:
@@ -17,6 +12,7 @@ class Trainer:
         self,
         model: torch.nn.Module,
         train_data: DataLoader,
+        test_data: DataLoader,
         optimizer: torch.optim.Optimizer,
         gpu_id: int,
         save_every: int,
@@ -34,6 +30,7 @@ class Trainer:
         loss = F.cross_entropy(output, targets)
         loss.backward()
         self.optimizer.step()
+        return loss.item()
 
     def _run_epoch(self, epoch):
         b_sz = len(next(iter(self.train_data))[0])
@@ -51,8 +48,11 @@ class Trainer:
         print(f"Epoch {epoch} | Training checkpoint saved at {PATH}")
 
     def train(self, max_epochs: int):
-        for epoch in range(max_epochs):
-            self._run_epoch(epoch)
-            if self.gpu_id == 0 and epoch % self.save_every == 0:
-                self._save_checkpoint(epoch)
+        with Progress as progress_bar:
+            task = progress_bar.add_task(total=max_epochs, visible=False)
+            for epoch in range(max_epochs):
+                progress_bar.update(task, description=f"Epoch {epoch+1} ")
+                self._run_epoch(epoch)
+                if self.gpu_id == 0 and epoch % self.save_every == 0:
+                    self._save_checkpoint(epoch)
 
