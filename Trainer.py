@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from rich.progress import Progress
+import wandb
 
 
 class Trainer:
@@ -26,33 +27,58 @@ class Trainer:
 
     def _run_batch(self, source, targets):
         self.optimizer.zero_grad()
-        output = self.model(source)
-        loss = F.cross_entropy(output, targets)
+        outputs = self.model(source)
+        loss = F.cross_entropy(outputs, targets)
         loss.backward()
         self.optimizer.step()
-        return loss.item()
+        return loss.item(), outputs
 
-    def _run_epoch(self, epoch):
+    def _run_epoch(self, epoch, progress_bar, task_id):
+        loss_total = 0
+        num_correct = 0
+        total_samples  = 0
         b_sz = len(next(iter(self.train_data))[0])
-        print(f"[GPU{self.gpu_id}] Epoch {epoch} | Batchsize: {b_sz} | Steps: {len(self.train_data)}")
         self.train_data.sampler.set_epoch(epoch)
         for source, targets in self.train_data:
             source = source.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
-            self._run_batch(source, targets)
+            loss, outputs = self._run_batch(source, targets)
+            _, preds = torch.max(outputs, 1)
+            num_correct += torch.sum(preds == targets.data)
+            total_samples += source.size(0)
+            progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
+
+        epoch_loss = loss_total / len(self.train_data)
+        epoch_acc = num_correct.double() / len(self.train_data)
+
+        return epoch_loss, epoch_acc
+
+    def validate(self, epoch):
+        val_loss = 0
 
     def _save_checkpoint(self, epoch):
         ckp = self.model.module.state_dict()
         PATH = "checkpoint.pt"
         torch.save(ckp, PATH)
-        print(f"Epoch {epoch} | Training checkpoint saved at {PATH}")
 
     def train(self, max_epochs: int):
-        with Progress as progress_bar:
-            task = progress_bar.add_task(total=max_epochs, visible=False)
+        run = wandb.init(
+            entity="liamlaidlaw-boise-state-university",
+            project="Real-Federated-ResNet",
+            config={
+                "architecture": "ResNet",
+                "dataset": 'CIFAR10',
+                "epochs": max_epochs,
+            },
+        )
+        total_steps = max_epochs * len(self.train_data) 
+        with Progress() as progress_bar:
+            task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
-                progress_bar.update(task, description=f"Epoch {epoch+1} ")
-                self._run_epoch(epoch)
+                epoch_loss, epoch_acc = self._run_epoch(epoch, progress_bar, task)
+                run.log({"acc": epoch_acc, "loss": epoch_loss})
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
                     self._save_checkpoint(epoch)
+
+        run.finish()
 

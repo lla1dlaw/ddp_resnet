@@ -2,6 +2,12 @@ import pretty_errors
 import torch
 import torch.multiprocessing as mp
 from torch.distributed import init_process_group, destroy_process_group
+from torchmetrics.classification import (
+    MulticlassAccuracy, MulticlassPrecision, MulticlassRecall, 
+    MulticlassF1Score, MulticlassAUROC
+)
+
+
 import os
 import math
 
@@ -16,6 +22,7 @@ def ddp_setup(rank, world_size):
         rank: Unique identifier of each process
         world_size: Total number of processes
     """
+    print("- Configuring DDP...")
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
     torch.cuda.set_device(rank)
@@ -23,17 +30,22 @@ def ddp_setup(rank, world_size):
 
 
 def load_train_objs(dataset_name: str, batch_size: int, arch: str):
+    print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
+    print(f"- Initializing model...")
     model = RealResNet(arch)
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, nesterov=True)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
     return train_loader, test_loader, model, optimizer
 
 
 def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str):
     ddp_setup(rank, world_size)
     train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch)
+    print(f"- Initializing Trainer...")
     trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
+    print("- Straning train loop...\n")
     trainer.train(total_epochs)
+    print("- Training Compete.")
     destroy_process_group()
 
 
@@ -50,4 +62,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     world_size = torch.cuda.device_count()
-    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.batch_size, args.architecture), nprocs=world_size)
+    
+
+    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture), nprocs=world_size)

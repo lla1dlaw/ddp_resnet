@@ -36,7 +36,7 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
         batch_size=batch_size,
         pin_memory=True,
         shuffle=False,
-        sampler=DistributedSampler(train_set) if torch.cuda.device_count() > 1 else None
+        sampler=DistributedSampler(train_set) 
     )
 
     test_loader = DataLoader(
@@ -44,7 +44,7 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
         batch_size=batch_size,
         pin_memory=True,
         shuffle=False,
-        sampler=DistributedSampler(test_set) if torch.cuda.device_count() > 1 else None
+        sampler=DistributedSampler(test_set) 
     )
 
     return train_loader, test_loader
