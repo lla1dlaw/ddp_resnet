@@ -3,6 +3,9 @@ from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
+from dotenv import load_dotenv
+
+load_dotenv()
 
 dataset_map: dict[str, Dataset] = {
     'cifar10': CIFAR10,
