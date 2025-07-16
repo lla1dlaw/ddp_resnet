@@ -1,3 +1,7 @@
+<<<<<<< HEAD
 __pycache__/ 
 data/
 
+=======
+.env
+>>>>>>> e367bdb (added .gitignore)
