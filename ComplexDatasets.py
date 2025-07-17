@@ -156,6 +156,6 @@ def _get_S3_stream() -> S3MapDataset:
 
 if __name__ == "__main__":
     train, val, test = S1SLC_CVDL("./data", training_split=[0.7, 0.2, 0.1])
-    print(f"\nTraining Data Shape: {train.shape}")
-    print(f"Validation Data Shape: {val.shape}")
-    print(f"Test Data Shape: {test.shape}")
+    print(f"\nTraining Data Shape: {train[0].shape}")
+    print(f"Validation Data Shape: {val[0].shape}")
+    print(f"Test Data Shape: {test[0].shape}")
