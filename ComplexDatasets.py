@@ -2,29 +2,141 @@ import pretty_errors
 import os
 import numpy as np
 from pathlib import Path
-from sys import base_exec_prefix
-from typing import Union, Optional, Callable, Any
+from typing import Union, Optional, Callable, Iterable
 from dotenv import load_dotenv
 from s3torchconnector import S3MapDataset
-from torch.utils.data.dataset import Dataset
+import torch
+from torch import Tensor
+from torch.utils.data import Dataset, Subset, random_split 
 from ProgressFile import ProgressFile
+
+
+class CustomDataset(Dataset):
+    def __init__(
+            self,
+            tensors: Iterable[np.ndarray | torch.Tensor],
+            transform: Optional[Callable] = None,
+            target_transform: Optional[Callable] = None,
+    ) -> None:
+        # Ensure all tensors have the same first dimension (number of samples)
+        self.tensors = [torch.as_tensor(tensor) for tensor in tensors]
+        assert all(self.tensors[0].size(0) == tensor.size(0) for tensor in self.tensors)
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, index):
+        data = self.tensors[0][index]
+        target = self.tensors[1][index] # Assuming the second tensor is the target
+        if self.transform is not None:
+            data = self.transform(data)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return data, target
+
+    def __len__(self):
+        return self.tensors[0].size(0)
 
 
 def S1SLC_CVDL( # Call this method only.
         root: Union[str, Path],
-        train: bool = True,
+        training_split: Optional[Iterable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        download: bool = False
-) -> Union[S3MapDataset, Dataset]: 
+        use_S3: bool = False, 
+) -> Union[S3MapDataset, CustomDataset, list[Subset[tuple[Tensor,...]]]]:
 
     """ Made for arbitrary usage as a replacement for PyTorch Datasets """
 
-    if download:
+    if use_S3:
         return _get_S3_stream()
     else: 
         base_dir = "S1SLC_CVDL"
-        return _load_saved_dataset(root_dir=root, base_dir=base_dir)
+        return _load_saved_dataset(
+            root_dir=root,
+            base_dir=base_dir,
+            training_split=training_split,
+            transform=transform,
+            target_transform=target_transform,
+        )
+
+def _load_saved_dataset(
+    root_dir: str,
+    base_dir:str,
+    transform: Optional[Callable],
+    target_transform: Optional[Callable],
+    polarization: Optional[str] = None,
+    training_split: Optional[Iterable] = [0.8, 0.2],
+) -> Union[CustomDataset, list[Subset[tuple[Tensor,...]]]]:
+
+    validate_args(root_dir, base_dir, polarization, training_split)
+
+    HH_data = []
+    HV_data = []
+    label_data = []
+
+    path = os.path.join(root_dir, base_dir)
+    for dir in os.listdir(path):
+        data_dir = os.path.join(path, dir)
+
+        HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
+        HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
+        labels_path = os.path.join(data_dir, 'Labels.npy')
+
+        print(f"\nLoading S1SLC_CVDL {dir}")
+        HH_data.extend(_load_np_from_file(HH_path))
+        HV_data.extend(_load_np_from_file(HV_path))
+        label_data.extend(_load_np_from_file(labels_path))
+
+    HH_array = np.array(HH_data)
+    HV_array = np.array(HV_data)
+
+    if polarization == 'HH':
+        inputs = HH_array
+    elif polarization == 'HV':
+        inputs = HV_array
+    elif polarization is None: # treats each set of data as a separate channel 
+        inputs = np.stack((HH_array, HV_array), axis = -1) 
+
+    labels = np.array(label_data)
+    dataset = CustomDataset(
+        (inputs, labels),
+        transform=transform,
+        target_transform=target_transform,
+    )
+
+    if training_split is None:
+        return dataset
+
+    sections = [ratio * len(dataset) for ratio in training_split]
+    dataset_sections = random_split(dataset, sections)
+    return dataset_sections
+
+
+def _load_np_from_file(path: str) -> np.array:
+    """ Helper function to load a saved numpy array from a .npy file """
+    with ProgressFile(path, "rb", desc=f'reading {path}') as f:
+        array = np.load(f)
+        f.close()
+    return array
+
+
+def validate_args(
+    root_dir: str,
+    base_dir:str,
+    polarization: Optional[str],
+    training_split: Iterable
+) -> None:
+    path = os.path.join(root_dir, base_dir)
+    try:
+        os.path.exists(path)
+    except FileNotFoundError:
+        print(f"Could not find directory: {path}")
+    
+    if polarization not in ['HH', 'HV'] and polarization is not None:
+        raise ValueError(f"Unkonwn argument for polarization {polarization}")
+
+    if sum(training_split) != 1:
+        raise ValueError(f"Values in training_split must sum to 1.")
 
 
 def _get_S3_stream() -> S3MapDataset:
@@ -41,50 +153,8 @@ def _get_S3_stream() -> S3MapDataset:
         exit()
 
 
-def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
-    path = os.path.join(root_dir, base_dir)
-    try:
-        os.path.exists(path)
-    except FileNotFoundError:
-        print(f"Could not find directory: {path}")
-    HH_data = []
-    HV_data = []
-    label_data = []
-
-    for dir in os.listdir(path):
-        data_dir = os.path.join(path, dir)
-
-        HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
-        HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
-        labels_path = os.path.join(data_dir, 'Labels.npy')
-
-        print(f"\nLoading S1SLC_CVDL {dir}")
-        with ProgressFile(HH_path, "rb", desc=f'reading {HH_path}') as f:
-            HH = np.load(f)
-            f.close()
-        with ProgressFile(HV_path, "rb", desc=f'reading {HV_path}') as f:
-            HV = np.load(f)
-            f.close()
-        with ProgressFile(labels_path, "rb", desc=f'reading {labels_path}') as f:
-            labels = np.load(f)
-            f.close()
-        
-        print("\n" + "="*30)
-        print(f"\n{dir} HH Shape: {HH.shape}")
-        print(f"{dir} HH dtype: {HH.dtype}")
-        print(f"\n{dir} HV Shape: {HV.shape}")
-        print(f"{dir} HV dtype: {HV.dtype}")
-        print(f"\n{dir} Labels Shape: {labels.shape}")
-        print(f"{dir} Labels dtype: {labels.dtype}")
-
-        HH_data.append(HH)
-        HV_data.append(HV)
-        label_data.append(labels)
-
-    HH_data = np.array(HH_data)
-    HV_data = np.array(HV_data)
-    label_data = np.array(label_data)
-
-
 if __name__ == "__main__":
-    _load_saved_dataset("./data", "S1SLC_CVDL")
+    train, val, test = S1SLC_CVDL("./data", training_split=[0.7, 0.2, 0.1])
+    print(f"\nTraining Data Shape: {train.shape}")
+    print(f"Validation Data Shape: {val.shape}")
+    print(f"Test Data Shape: {test.shape}")
