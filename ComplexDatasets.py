@@ -117,6 +117,8 @@ def _load_np_from_file(path: str) -> np.array:
     """ Helper function to load a saved numpy array from a .npy file """
     with ProgressFile(path, "rb", desc=f'reading {path}') as f:
         array = np.load(f)
+        if array.dtype == np.complex128:
+            array = array.astype(np.complex64)# quantize for memory purposes
         f.close()
     return array
 
