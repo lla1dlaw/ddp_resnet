@@ -61,10 +61,13 @@ def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
         print(f"\nLoading S1SLC_CVDL {dir}")
         with ProgressFile(HH_path, "rb", desc=f'reading {HH_path}') as f:
             HH = np.load(f)
+            f.close()
         with ProgressFile(HH_path, "rb", desc=f'reading {HV_path}') as f:
             HV = np.load(f)
+            f.close()
         with ProgressFile(HH_path, "rb", desc=f'reading {labels_path}') as f:
             labels = np.load(f)
+            f.close()
         
         print("\n" + "="*30)
         print(f"\n{dir} HH Shape: {HH.shape}")
