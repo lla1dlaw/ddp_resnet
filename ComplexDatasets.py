@@ -7,6 +7,7 @@ from typing import Union, Optional, Callable, Any
 from dotenv import load_dotenv
 from s3torchconnector import S3MapDataset
 from torch.utils.data.dataset import Dataset
+from ProgressFile import ProgressFile
 
 
 def S1SLC_CVDL( # Call this method only.
@@ -26,7 +27,7 @@ def S1SLC_CVDL( # Call this method only.
         return _load_saved_dataset(root_dir=root, base_dir=base_dir)
 
 
-def _get_S3_stream() -> Union[S3MapDataset, None]:
+def _get_S3_stream() -> S3MapDataset:
     URI = "s3://ieee-dataport/open/98396/S1SLC_CVDL.rar"
     REGION = "us-east-1"
     try:
@@ -54,12 +55,15 @@ def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
         data_dir = os.path.join(path, dir)
 
         HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
-        HV_path = os.path.join(data_dir, 'HV_Complex_Pathes.npy')
+        HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
         labels_path = os.path.join(data_dir, 'Labels.npy')
 
-        HH = np.load(HH_path)
-        HV = np.load(HV_path)
-        labels = np.load(labels_path)
+        with ProgressFile(HH_path, "rb", desc=f'reading {HH_path}') as f:
+            HH = np.load(f)
+        with ProgressFile(HH_path, "rb", desc=f'reading {HV_path}') as f:
+            HV = np.load(f)
+        with ProgressFile(HH_path, "rb", desc=f'reading {labels_path}') as f:
+            labels = np.load(f)
         
         print("="*30)
         print(f"\n{dir} HH Shape: {HH.shape}")
