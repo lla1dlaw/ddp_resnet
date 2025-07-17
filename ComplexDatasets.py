@@ -124,7 +124,7 @@ def validate_args(
     root_dir: str,
     base_dir:str,
     polarization: Optional[str],
-    training_split: Iterable
+    training_split: Iterable[float]
 ) -> None:
     path = os.path.join(root_dir, base_dir)
     try:
@@ -135,7 +135,7 @@ def validate_args(
     if polarization not in ['HH', 'HV'] and polarization is not None:
         raise ValueError(f"Unkonwn argument for polarization {polarization}")
 
-    if sum(training_split) != 1:
+    if sum(training_split) != 1.0:
         raise ValueError(f"Values in training_split must sum to 1.")
 
 
