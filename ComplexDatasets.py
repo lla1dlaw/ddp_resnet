@@ -136,7 +136,7 @@ def validate_args(
         raise ValueError(f"Unkonwn argument for polarization {polarization}")
 
     if sum(training_split) != 1.0:
-        raise ValueError(f"Values in training_split must sum to 1.")
+        raise ValueError(f"Values in training_split must sum to 1. Got: {sum(training_split)}")
 
 
 def _get_S3_stream() -> S3MapDataset:
