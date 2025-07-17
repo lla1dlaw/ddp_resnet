@@ -108,8 +108,7 @@ def _load_saved_dataset(
     if training_split is None:
         return dataset
 
-    sections = [ratio * len(dataset) for ratio in training_split]
-    dataset_sections = random_split(dataset, sections)
+    dataset_sections = random_split(dataset, training_split)
     return dataset_sections
 
 
