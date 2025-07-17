@@ -58,6 +58,7 @@ def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
         HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
         labels_path = os.path.join(data_dir, 'Labels.npy')
 
+        print(f"Loading S1SLC_CVDL {dir}")
         with ProgressFile(HH_path, "rb", desc=f'reading {HH_path}') as f:
             HH = np.load(f)
         with ProgressFile(HH_path, "rb", desc=f'reading {HV_path}') as f:
