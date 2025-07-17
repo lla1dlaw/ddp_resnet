@@ -1,29 +1,34 @@
+import s3torchconnector
 import torch
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
-from dotenv import load_dotenv
-
-load_dotenv()
+from ComplexDatasets import S1SLC_CVDL
 
 dataset_map: dict[str, Dataset] = {
     'cifar10': CIFAR10,
     'cifar100': CIFAR100,
     'mnist': MNIST,
+    'S1SLC_CVDL': S1SLC_CVDL,
 }
 
-def get_datasets(dataset_name: str) -> tuple[Dataset, Dataset]:
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+def get_datasets(dataset_name: str):
+    if dataset_name in ['cifar10', 'cifar100', 'mnist']:
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+
+    elif dataset_name == 'S1SLC_CVDL':
+        pass # TODO define SAR data transformation here
+
     trainset = dataset_map[dataset_name.lower()](root='./data', train=True, download=True, transform=transform_train)
     testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
     print(f"{dataset_name.upper()} datasets loaded successfully.")

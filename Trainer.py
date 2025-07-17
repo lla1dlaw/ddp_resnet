@@ -37,7 +37,6 @@ class Trainer:
         loss_total = 0
         num_correct = 0
         total_samples  = 0
-        b_sz = len(next(iter(self.train_data))[0])
         self.train_data.sampler.set_epoch(epoch)
         for source, targets in self.train_data:
             source = source.to(self.gpu_id)
