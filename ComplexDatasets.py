@@ -65,13 +65,13 @@ def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
         with ProgressFile(HH_path, "rb", desc=f'reading {labels_path}') as f:
             labels = np.load(f)
         
-        print("="*30)
+        print("\n" + "="*30)
         print(f"\n{dir} HH Shape: {HH.shape}")
-        print(f"\n{dir} HH dtype: {HH.dtype}")
-        print(f"{dir} HV Shape: {HV.shape}")
-        print(f"\n{dir} HV dtype: {HV.dtype}")
-        print(f"{dir} Labels Shape: {labels.shape}")
-        print(f"\n{dir} Labels dtype: {labels.dtype}")
+        print(f"{dir} HH dtype: {HH.dtype}")
+        print(f"\n{dir} HV Shape: {HV.shape}")
+        print(f"{dir} HV dtype: {HV.dtype}")
+        print(f"\n{dir} Labels Shape: {labels.shape}")
+        print(f"{dir} Labels dtype: {labels.dtype}")
 
         HH_data.append(HH)
         HV_data.append(HV)
