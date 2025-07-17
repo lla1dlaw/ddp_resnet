@@ -1,5 +1,6 @@
 import pretty_errors
 import os
+from math import fsum
 import numpy as np
 from pathlib import Path
 from typing import Union, Optional, Callable, Iterable
@@ -135,8 +136,8 @@ def validate_args(
     if polarization not in ['HH', 'HV'] and polarization is not None:
         raise ValueError(f"Unkonwn argument for polarization {polarization}")
 
-    if sum(training_split) != 1.0:
-        raise ValueError(f"Values in training_split must sum to 1. Got: {sum(training_split)}")
+    if fsum(training_split) != 1.0:
+        raise ValueError(f"Values in training_split must sum to 1. Got: {fsum(training_split)}")
 
 
 def _get_S3_stream() -> S3MapDataset:
