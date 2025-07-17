@@ -1,13 +1,34 @@
+import pretty_errors
 import os
-from typing import Union
+import numpy as np
+from pathlib import Path
+from sys import base_exec_prefix
+from typing import Union, Optional, Callable, Any
 from dotenv import load_dotenv
 from s3torchconnector import S3MapDataset
-from torchvision import Dataset
+from torch.utils.data.dataset import Dataset
 
-def _get_S3_stream():
+
+def S1SLC_CVDL( # Call this method only.
+        root: Union[str, Path],
+        train: bool = True,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        download: bool = False
+) -> Union[S3MapDataset, Dataset]: 
+
+    """ Made for arbitrary usage as a replacement for PyTorch Datasets """
+
+    if download:
+        return _get_S3_stream()
+    else: 
+        base_dir = "S1SLC_CVDL"
+        return _load_saved_dataset(root_dir=root, base_dir=base_dir)
+
+
+def _get_S3_stream() -> Union[S3MapDataset, None]:
     URI = "s3://ieee-dataport/open/98396/S1SLC_CVDL.rar"
     REGION = "us-east-1"
-
     try:
         load_dotenv() # AWS secret ID & Secret key must be stored in a .env file for accessing the SLSLC_CVDL. If such a file does not exist, create one.
         return S3MapDataset.from_prefix(URI, region=REGION) # S3MapDataset streams data from an S3 bucket rather than downloading the full dataset. 
@@ -18,31 +39,44 @@ def _get_S3_stream():
         print("Or remove 'download = True' argument from S1SLC_CVDL call to attempt local loading.")
         exit()
 
-def _load_saved_dataset():
-    pass
 
-def S1SLC_CVDL(*args, **kwargs) -> Union[S3MapDataset, Dataset]:
-    """ Made for arbitrary usage as a replacement for PyTorch Datasets """
-    download = kwargs.get('download', False) == True
+def _load_saved_dataset(root_dir: str, base_dir:str) -> Dataset:
+    path = os.path.join(root_dir, base_dir)
+    try:
+        os.path.exists(path)
+    except FileNotFoundError:
+        print(f"Could not find directory: {path}")
+    HH_data = []
+    HV_data = []
+    label_data = []
 
-    if download:
-        return _get_S3_stream()
-    else: 
-        return _load_saved_dataset()
+    for dir in os.listdir(path):
+        data_dir = os.path.join(path, dir)
 
-    print("Loaded Dataset.")
-    return dataset
+        HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
+        HV_path = os.path.join(data_dir, 'HV_Complex_Pathes.npy')
+        labels_path = os.path.join(data_dir, 'Labels.npy')
+
+        HH = np.load(HH_path)
+        HV = np.load(HV_path)
+        labels = np.load(labels_path)
+        
+        print("="*30)
+        print(f"\n{dir} HH Shape: {HH.shape}")
+        print(f"\n{dir} HH dtype: {HH.dtype}")
+        print(f"{dir} HV Shape: {HV.shape}")
+        print(f"\n{dir} HV dtype: {HV.dtype}")
+        print(f"{dir} Labels Shape: {labels.shape}")
+        print(f"\n{dir} Labels dtype: {labels.dtype}")
+
+        HH_data.append(HH)
+        HV_data.append(HV)
+        label_data.append(labels)
+
+    HH_data = np.array(HH_data)
+    HV_data = np.array(HV_data)
+    label_data = np.array(label_data)
 
 
 if __name__ == "__main__":
-    # test download and see info about dataset.
-    dataset = S1SLC_CVDL(root='./data', train=True, download=True, transform=None)
-    sample = dataset[0].read()
-    sample_type = type(sample)
-    sample_dtype = sample.dtype()
-    sample_dims = sample.shape()
-
-    print(f"Sample Type: {sample_type}")
-    print(f"Sample DType: {sample_dtype}")
-    print(f"Sample Shape: {sample_dims}")
-    print(f"\nSample: {sample}")
+    _load_saved_dataset("./data", "S1SLC_CVDL")
