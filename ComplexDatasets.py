@@ -168,6 +168,7 @@ def balance_dataset_multi(*image_arrays, labels, n_samples_per_class, random_sam
         all_selected_indices.extend(selected_indices)
 
     final_indices = np.array(all_selected_indices, dtype=int)
+    print(final_indices[0:5])
     balanced_labels = labels[final_indices]
     balanced_image_arrays = [arr[final_indices] for arr in image_arrays]
     return (*balanced_image_arrays, balanced_labels)
