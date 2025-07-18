@@ -123,10 +123,10 @@ def _load_np_from_file(path: str) -> np.array:
     return array
 
 
-def save_arrays(*arrays, path:str = "./data/mini_S1SLC_CVDL/"):
+def save_arrays(path:str = "./data/mini_S1SLC_CVDL/", **paths_and_arrays):
     os.makedirs(path, exist_ok=True)
-    for array in arrays:
-        filename = f'{array=}'.split('=')[0] + '.npy'
+    for name, array in paths_and_arrays.item():
+        filename = f'{name}.npy'
         np.save(os.path.join(path, filename), array, allow_pickle=True)
 
 
@@ -212,8 +212,14 @@ def make_mini_dataset(
     HV_array = np.array(HV_data)
     labels_array = np.array(label_data)
 
+
     HH_Complex_Patches, HV_Complex_Patches, Labels = balance_dataset_multi(HH_array, HV_array, labels=labels_array, n_samples_per_class=num_samples)
-    save_arrays(HH_Complex_Patches, HV_Complex_Patches, Labels, path="./data/mini_S1SLC_CVDL/")
+    paths_and_arrays = {
+        Path(HH_path).stem: HH_Complex_Patches,
+        Path(HV_path).stem: HV_Complex_Patches,
+        Path(labels_path).stem: Labels,
+    }
+    save_arrays(path="./data/mini_S1SLC_CVDL/", **paths_and_arrays)
 
 
 
