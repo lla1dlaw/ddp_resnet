@@ -64,3 +64,4 @@ if __name__ == "__main__":
     world_size = torch.cuda.device_count()
 
     mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation), nprocs=world_size)
+

@@ -28,12 +28,17 @@ class Trainer:
         self.save_every = save_every
         self.model = DDP(model, device_ids=[gpu_id])
 
-    def _run_batch(self, source, targets):
+    def _run_batch(self, inputs, targets):
         self.optimizer.zero_grad()
-        outputs = self.model(source)
+        outputs = self.model(inputs)
         loss = F.cross_entropy(outputs, targets)
         loss.backward()
         self.optimizer.step()
+        return loss.item(), outputs
+
+    def _run_val_batch(self, inputs, targets):
+        outputs = self.model(inputs)
+        loss = F.cross_entropy(outputs, targets)
         return loss.item(), outputs
 
     def _run_epoch(self, epoch, progress_bar, task_id):
@@ -43,31 +48,43 @@ class Trainer:
         top5_acc = MulticlassAccuracy(num_classes=num_classes, k=5)
         self.train_data.sampler.set_epoch(epoch)
 
-        for source, targets in self.train_data:
-            source = source.to(self.gpu_id)
+        self.model.train()
+        for inputs, targets in self.train_data:
+            inputs = inputs.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
-            loss, outputs = self._run_batch(source, targets)
-            _, preds = torch.max(outputs, 1)
+            loss, outputs = self._run_batch(inputs, targets)
             loss_total += loss
-            num_correct += torch.sum(preds == targets.data)
+            top1_acc.update(outputs, targets)
+            top5_acc.update(outputs, targets)
             progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
 
         epoch_loss = loss_total / len(self.train_data)
-        epoch_acc = num_correct.double() / len(self.train_data)
+        return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item()
 
-        return epoch_loss, epoch_acc
-
-    def validate(self, epoch: int, num_classes: int):
+    def validate(self, epoch: int):
+        num_classes = len(self.train_data.dataset.classes)
         top1_acc = MulticlassAccuracy(num_classes=num_classes, k=1)
         top5_acc = MulticlassAccuracy(num_classes=num_classes, k=5)
+        total_loss = 0
 
-        for source, targets in self.validation_data:
-            
+        self.model.eval()
+
+        with torch.no_grad():
+            for inputs, targets in self.validation_data:
+                inputs = inputs.to(self.gpu_id)
+                targets = targets.to(self.gpu_id)
+                loss, outputs = self._run_val_batch(inputs, targets)
+                top1_acc.update(outputs, targets)
+                top5_acc.update(outputs, targets)
+                total_loss += loss
+
+        epoch_loss = total_loss / len(self.validation_data)
+        return epoch_loss, top1_acc.compute().item(), top5_acc.compue().item()
 
 
     def _save_checkpoint(self, epoch):
         ckp = self.model.module.state_dict()
-        PATH = "checkpoint.pt"
+        PATH = f"epoch_{epoch}_checkpoint.pt"
         torch.save(ckp, PATH)
 
     def train(self, max_epochs: int):
@@ -84,10 +101,18 @@ class Trainer:
         with Progress() as progress_bar:
             task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
-                epoch_loss, epoch_acc = self._run_epoch(epoch, progress_bar, task)
-                run.log({"acc": epoch_acc, "loss": epoch_loss})
+                epoch_loss, train_top1, train_top5 = self._run_epoch(epoch, progress_bar, task)
+                val_loss, val_top1, val_top5 = self.validate(epoch)
+                run.log({
+                    "train loss": epoch_loss,
+                    "train acc": train_top1,
+                    "train top5 acc": train_top5,
+                    "val loss": val_loss,
+                    "val acc": val_top1,
+                    "val top5 acc": val_top5,
+                })
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
                     self._save_checkpoint(epoch)
-
+                self.validate(epoch)
         run.finish()
 
