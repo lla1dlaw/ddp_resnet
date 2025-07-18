@@ -171,7 +171,7 @@ def balance_dataset_multi(*image_arrays, labels, n_samples_per_class, random_sam
     print(final_indices[0:5])
     balanced_labels = labels[final_indices]
     balanced_image_arrays = [arr[final_indices] for arr in image_arrays]
-    classes, confirmed_samples_per_class = np.unique(balanced_labels)
+    classes, confirmed_samples_per_class = np.unique(balanced_labels, return_counts=True)
 
     print("Final count for each class:")
     
