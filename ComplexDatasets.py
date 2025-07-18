@@ -138,7 +138,7 @@ def validate_args(
     if polarization not in ['HH', 'HV'] and polarization is not None:
         raise ValueError(f"Unkonwn argument for polarization {polarization}")
 
-    if fsum(training_split) != 1.0:
+    if training_split is not None and fsum(training_split) != 1.0:
         raise ValueError(f"Values in training_split must sum to 1. Got: {fsum(training_split)}")
 
 
