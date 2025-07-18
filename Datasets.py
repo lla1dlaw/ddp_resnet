@@ -45,7 +45,6 @@ def get_dataset(dataset_name: str):
         print("Content Info")
         print(f"Type: {type(content)}")
         print(f"Inner content type: {type(content[0])}")
-        print(f"Item: {content}")
 
 
     print(f"{dataset_name.upper()} datasets loaded successfully.")
