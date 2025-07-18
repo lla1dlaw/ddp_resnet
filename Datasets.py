@@ -14,6 +14,7 @@ dataset_map = {
 }
 
 def get_dataset(dataset_name: str):
+    print(f"Begining Load Process for {dataset_name}")
     if dataset_name in ['cifar10', 'cifar100', 'mnist']:
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -32,12 +33,16 @@ def get_dataset(dataset_name: str):
         # transform = transforms.ToTensor()
         transform = None
         dataset = dataset_map['S1SLC_CVDL'](root='./data', transform=transform, use_s3=True)
+        print("- S3 dataset established -")
+        print("Getting item")
         item = dataset[0]
-
+        print("Bucket info:")
         # Learn about bucket, key, and content of the object
-        print(f"Bucket: {item.bucket}")
-        print(f"Key: {item.key}")
+        print(f"\t- Bucket: {item.bucket}")
+        print(f"\t- Key: {item.key}")
+        print("Reading item content...")
         content = item.read()
+        print("Content Info")
         print(f"Type: {type(content)}")
         print(f"Inner content type: {type(content[0])}")
         print(f"Item: {content}")
