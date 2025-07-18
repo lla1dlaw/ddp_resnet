@@ -52,7 +52,7 @@ def S1SLC_CVDL( # Call this method only.
     if use_s3:
         return _get_S3_stream(transform)
     else: 
-        base_dir = "S1SLC_CVDL"
+        base_dir = "mini_S1SLC_CVDL"
         return _load_saved_dataset(
             root_dir=root,
             base_dir=base_dir,
