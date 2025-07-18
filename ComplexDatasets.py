@@ -174,7 +174,7 @@ def balance_dataset_multi(*image_arrays, labels, n_samples_per_class, random_sam
     return (*balanced_image_arrays, balanced_labels)
 
 
-def _make_mini_dataset(
+def make_mini_dataset(
     root_dir: str = "./data",
     base_dir:str = "S1SLC_CVDL",
     num_samples: int = 10000, # 10,000 samples per class
