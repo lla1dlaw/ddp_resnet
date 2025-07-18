@@ -118,9 +118,91 @@ def _load_np_from_file(path: str) -> np.array:
     with ProgressFile(path, "rb", desc=f'reading {path}') as f:
         array = np.load(f)
         if array.dtype == np.complex128:
-            array = array.astype(np.complex64)# quantize for memory purposes
+            array = array.astype(np.complex64)# decrease size to increase training speed 
         f.close()
     return array
+
+
+def save_arrays(*arrays, path:str = "./data/mini_S1SLC_CVDL/"):
+    os.makedirs(path, exist_ok=True)
+    for array in arrays:
+        filename = f'{array=}'.split('=')[0] + '.npy'
+        np.save(os.path.join(path, filename), array, allow_pickle=True)
+
+
+
+def balance_dataset_multi(*image_arrays, labels, n_samples_per_class, random_sample=True):
+    """
+    Balances a dataset by selecting samples based on shared labels.
+
+    This function works for one or more image arrays that are all aligned
+    with a single labels array.
+
+    Args:
+        *image_arrays (np.ndarray): A variable number of data arrays (e.g., images).
+                                    All must have the same length as `labels`.
+        labels (np.ndarray): A 1D array of class labels. Assumed to be integers.
+        n_samples_per_class (int): The number of samples to store from each class. 
+        random_sample (bool): If True, select a random sample. If False, select
+                              the first n samples. Defaults to True.
+
+    Returns:
+        tuple: A tuple containing the balanced version of each input array,
+               followed by the balanced labels array at the end.
+    """
+    all_selected_indices = []
+    unique_labels = np.unique(labels)
+
+    for label in unique_labels:
+        class_indices = np.where(labels == label)[0]
+
+        if len(class_indices) >= n_samples_per_class:
+            if random_sample:
+                selected_indices = np.random.choice(class_indices, n_samples_per_class, replace=False)
+            else:
+                selected_indices = class_indices[:n_samples_per_class]
+        else:
+            print(f"⚠️ Warning: Class {label} has only {len(class_indices)} samples. Taking all of them.")
+            selected_indices = class_indices
+        
+        all_selected_indices.extend(selected_indices)
+
+    final_indices = np.array(all_selected_indices, dtype=int)
+    balanced_labels = labels[final_indices]
+    balanced_image_arrays = [arr[final_indices] for arr in image_arrays]
+    return (*balanced_image_arrays, balanced_labels)
+
+
+def _make_mini_dataset(
+    root_dir: str = "./data",
+    base_dir:str = "S1SLC_CVDL",
+    num_samples: int = 70000, # 10,000 samples per class
+) -> None:
+
+    HH_data = []
+    HV_data = []
+    label_data = []
+
+    path = os.path.join(root_dir, base_dir)
+    for dir in os.listdir(path):
+        data_dir = os.path.join(path, dir)
+
+        HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
+        HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
+        labels_path = os.path.join(data_dir, 'Labels.npy')
+
+        print(f"\nLoading S1SLC_CVDL {dir}")
+        HH_data.extend(_load_np_from_file(HH_path))
+        HV_data.extend(_load_np_from_file(HV_path))
+        label_data.extend(_load_np_from_file(labels_path))
+
+    HH_array = np.array(HH_data)
+    HV_array = np.array(HV_data)
+    labels_array = np.array(label_data)
+
+    HH_Complex_Patches, HV_Complex_Patches, Labels = balance_dataset_multi((HH_array, HV_array), labels=labels_array, n_samples_per_class=num_samples)
+    save_arrays((HH_Complex_Patches, HV_Complex_Patches, Labels), path="./data/mini_S1SLC_CVDL/")
+
 
 
 def validate_args(
