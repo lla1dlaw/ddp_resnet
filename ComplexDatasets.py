@@ -125,7 +125,7 @@ def _load_np_from_file(path: str) -> np.array:
 
 def save_arrays(path:str = "./data/mini_S1SLC_CVDL/", **paths_and_arrays):
     os.makedirs(path, exist_ok=True)
-    for name, array in paths_and_arrays.item():
+    for name, array in paths_and_arrays.items():
         filename = f'{name}.npy'
         np.save(os.path.join(path, filename), array, allow_pickle=True)
 
