@@ -5,6 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
 from ComplexDatasets import S1SLC_CVDL
+from datatime import datetime
 
 dataset_map = {
     'cifar10': CIFAR10,
@@ -75,4 +76,11 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
 
 
 if __name__ == "__main__":
+    start_time = datetime.now()
+
     get_dataset('S1SLC_CVDL')
+    
+    end_time = datetime.datetime.now()
+    time_difference = end_time - start_time
+    execution_time_minutes = time_difference.total_seconds() / 60
+    print(f"Loading data took: {execution_time_minutes:.2f} minutes.")
