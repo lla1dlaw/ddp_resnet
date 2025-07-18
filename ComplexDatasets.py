@@ -44,6 +44,7 @@ def S1SLC_CVDL( # Call this method only.
         split: Optional[Iterable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        polarization: str = 'HH',
         use_s3: bool = False, 
 ) -> Union[S3MapDataset, CustomDataset, list[Subset[tuple[Tensor,...]]]]:
 
@@ -59,6 +60,7 @@ def S1SLC_CVDL( # Call this method only.
             training_split=split,
             transform=transform,
             target_transform=target_transform,
+            polarization=polarization,
         )
 
 def _load_saved_dataset(
