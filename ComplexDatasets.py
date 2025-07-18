@@ -97,7 +97,7 @@ def _load_saved_dataset(
     elif polarization == 'HV':
         inputs = HV_array
     elif polarization is None: # treats each set of data as a separate channel 
-        inputs = np.stack((HH_array, HV_array), axis = -1) 
+        inputs = np.stack((HH_array, HV_array), axis=1) 
 
     labels = np.array(label_data)
     dataset = CustomDataset(
