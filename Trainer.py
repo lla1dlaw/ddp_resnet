@@ -44,8 +44,8 @@ class Trainer:
 
     def _run_epoch(self, epoch, progress_bar, task_id):
         loss_total = 0
-        top1_acc = MulticlassAccuracy(self.num_classes, k=1)
-        top5_acc = MulticlassAccuracy(self.num_classes, k=5)
+        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
         self.train_data.sampler.set_epoch(epoch)
 
         self.model.train()
@@ -62,8 +62,8 @@ class Trainer:
         return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item()
 
     def validate(self, epoch: int):
-        top1_acc = MulticlassAccuracy(self.num_classes, k=1)
-        top5_acc = MulticlassAccuracy(self.num_classes, k=5)
+        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
         total_loss = 0
 
         self.model.eval()
