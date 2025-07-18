@@ -1,7 +1,5 @@
-import s3torchconnector
-import torch
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import  DataLoader
 import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
 from ComplexDatasets import S1SLC_CVDL
@@ -33,20 +31,7 @@ def get_dataset(dataset_name: str):
     elif dataset_name == 'S1SLC_CVDL':
         # transform = transforms.ToTensor()
         transform = None
-        dataset = dataset_map['S1SLC_CVDL'](root='./data', transform=transform)
-        print("- S3 dataset established -")
-        print("Getting item")
-        item = dataset[0]
-        print("Bucket info:")
-        # Learn about bucket, key, and content of the object
-        print(f"\t- Bucket: {item.bucket}")
-        print(f"\t- Key: {item.key}")
-        print("Reading item content...")
-        content = item.read()
-        print("Content Info")
-        print(f"Type: {type(content)}")
-        print(f"Inner content type: {type(content[0])}")
-
+        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', split=[0.8, 0.2], transform=transform)
 
     print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
