@@ -61,7 +61,8 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
         batch_size=batch_size,
         pin_memory=True,
         shuffle=False,
-        sampler=DistributedSampler(train_set) 
+        sampler=DistributedSampler(train_set), 
+        num_workers=4,
     )
 
     test_loader = DataLoader(
@@ -69,7 +70,8 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
         batch_size=batch_size,
         pin_memory=True,
         shuffle=False,
-        sampler=DistributedSampler(test_set) 
+        sampler=DistributedSampler(test_set),
+        num_workers=4,
     )
 
     return train_loader, test_loader
