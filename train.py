@@ -1,12 +1,8 @@
 import pretty_errors
 import torch
 import torch.multiprocessing as mp
+import torch.distributed as td
 from torch.distributed import init_process_group, destroy_process_group
-from torchmetrics.classification import (
-    MulticlassAccuracy, MulticlassPrecision, MulticlassRecall, 
-    MulticlassF1Score, MulticlassAUROC
-)
-
 
 import os
 import math
@@ -32,8 +28,10 @@ def ddp_setup(rank, world_size):
 def load_train_objs(dataset_name: str, batch_size: int, arch: str, activation: str):
     print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
+    labels = [label for _, label in train_loader.dataset]
+    num_classes = len(torch.tensor(labels).unique())
     print(f"- Initializing model...")
-    model = ComplexResNet(arch, activation_function=activation)
+    model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
     return train_loader, test_loader, model, optimizer
 
@@ -43,7 +41,7 @@ def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset
     train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch, activation)
     print(f"- Initializing Trainer...")
     trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
-    print("- Straning train loop...\n")
+    print(f"- Straning train loop with {td.get_world_size()} GPUs in DDP\n")
     trainer.train(total_epochs)
     print("- Training Compete.")
     destroy_process_group()

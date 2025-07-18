@@ -26,7 +26,8 @@ class Trainer:
         self.validation_data = validation_data
         self.optimizer = optimizer
         self.save_every = save_every
-        self.model = DDP(model, device_ids=[gpu_id])
+        self.num_classes = model.num_classes
+        self.model = DDP(model,  device_ids=[gpu_id])
 
     def _run_batch(self, inputs, targets):
         self.optimizer.zero_grad()
@@ -42,10 +43,9 @@ class Trainer:
         return loss.item(), outputs
 
     def _run_epoch(self, epoch, progress_bar, task_id):
-        num_classes = len(self.train_data.dataset.classes)
         loss_total = 0
-        top1_acc = MulticlassAccuracy(num_classes=num_classes, k=1)
-        top5_acc = MulticlassAccuracy(num_classes=num_classes, k=5)
+        top1_acc = MulticlassAccuracy(num_classes=self.num_classes, k=1)
+        top5_acc = MulticlassAccuracy(num_classes=self.num_classes, k=5)
         self.train_data.sampler.set_epoch(epoch)
 
         self.model.train()
@@ -62,9 +62,8 @@ class Trainer:
         return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item()
 
     def validate(self, epoch: int):
-        num_classes = len(self.train_data.dataset.classes)
-        top1_acc = MulticlassAccuracy(num_classes=num_classes, k=1)
-        top5_acc = MulticlassAccuracy(num_classes=num_classes, k=5)
+        top1_acc = MulticlassAccuracy(num_classes=self.num_classes, k=1)
+        top5_acc = MulticlassAccuracy(num_classes=self.num_classes, k=5)
         total_loss = 0
 
         self.model.eval()

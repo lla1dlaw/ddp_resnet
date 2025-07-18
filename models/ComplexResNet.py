@@ -379,6 +379,7 @@ class ComplexBatchNorm2d(nn.Module):
 class ComplexResNet(nn.Module):
     def __init__(self, architecture_type, activation_function, input_channels=1, num_classes=7):
         super(ComplexResNet, self).__init__()
+        self.num_classes = num_classes
         configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
         config = configs[architecture_type]
         self.initial_filters = config['filters']

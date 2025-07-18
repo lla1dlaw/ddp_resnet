@@ -79,6 +79,7 @@ class RealResNet(nn.Module):
             num_classes The number of classes to classify into. Defaults to 10.
         """
         super(RealResNet, self).__init__()
+        self.num_classes = num_classes
         configs = {'WS': {'filters': 18, 'blocks_per_stage': [14, 14, 14]}, 'DN': {'filters': 14, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 16, 'blocks_per_stage': [18, 18, 18]}}
         config = configs[architecture_type]
         self.initial_filters = config['filters']
