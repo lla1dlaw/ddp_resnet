@@ -396,7 +396,7 @@ class ComplexBatchNorm2d(nn.Module):
                 f'track_running_stats={self.track_running_stats})')
 
 class ComplexResNet(nn.Module):
-    def __init__(self, architecture_type, activation_function, learn_imaginary_component, input_channels=3, num_classes=10):
+    def __init__(self, architecture_type, activation_function, learn_imaginary_component, input_channels=2, num_classes=7):
         super(ComplexResNet, self).__init__()
         configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
         config = configs[architecture_type]
