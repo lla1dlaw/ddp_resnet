@@ -7,7 +7,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from rich.progress import Progress
 import wandb
 
-from torchmetrics.classification import MulticlassAccuracy
+from torcheval.metrics import MulticlassAccuracy
 
 
 class Trainer:
