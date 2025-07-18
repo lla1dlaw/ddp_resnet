@@ -33,7 +33,7 @@ def load_train_objs(dataset_name: str, batch_size: int, arch: str):
     print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
     print(f"- Initializing model...")
-    model = ComplexResNet(arch, activation_function='crelu')
+    model = ComplexResNet(arch, activation_function='complex_cardioid')
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
     return train_loader, test_loader, model, optimizer
 
