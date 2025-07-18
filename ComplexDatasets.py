@@ -95,9 +95,9 @@ def _load_saved_dataset(
     HV_array = np.array(HV_data)
 
     if polarization == 'HH':
-        inputs = HH_array
+        inputs = np.expand_dims(HH_array, axis=1)
     elif polarization == 'HV':
-        inputs = HV_array
+        inputs = np.expand_dims(HV_array, axis=1)
     elif polarization is None: # treats each set of data as a separate channel 
         inputs = np.stack((HH_array, HV_array), axis=1) 
 
