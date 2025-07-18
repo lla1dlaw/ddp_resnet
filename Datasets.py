@@ -33,7 +33,7 @@ def get_dataset(dataset_name: str):
     elif dataset_name == 'S1SLC_CVDL':
         # transform = transforms.ToTensor()
         transform = None
-        dataset = dataset_map['S1SLC_CVDL'](root='./data', transform=transform, use_s3=True)
+        dataset = dataset_map['S1SLC_CVDL'](root='./data', transform=transform)
         print("- S3 dataset established -")
         print("Getting item")
         item = dataset[0]
