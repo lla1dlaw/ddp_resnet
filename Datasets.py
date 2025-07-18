@@ -35,9 +35,9 @@ def get_dataset(dataset_name: str):
         item = dataset[0]
 
         # Learn about bucket, key, and content of the object
-        content = item.read()
         print(f"Bucket: {item.bucket}")
         print(f"Key: {item.key}")
+        content = item.read()
         print(f"Type: {type(content)}")
         print(f"Inner content type: {type(content[0])}")
         print(f"Item: {content}")
