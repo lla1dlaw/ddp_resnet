@@ -6,14 +6,14 @@ import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
 from ComplexDatasets import S1SLC_CVDL
 
-dataset_map: dict[str, Dataset] = {
+dataset_map = {
     'cifar10': CIFAR10,
     'cifar100': CIFAR100,
     'mnist': MNIST,
     'S1SLC_CVDL': S1SLC_CVDL,
 }
 
-def get_datasets(dataset_name: str):
+def get_dataset(dataset_name: str):
     if dataset_name in ['cifar10', 'cifar100', 'mnist']:
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -26,18 +26,30 @@ def get_datasets(dataset_name: str):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
 
+        trainset = dataset_map[dataset_name.lower()](root='./data', train=True, download=True, transform=transform_train)
+        testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
     elif dataset_name == 'S1SLC_CVDL':
-        pass # TODO define SAR data transformation here
+        # transform = transforms.ToTensor()
+        transform = None
+        dataset = dataset_map['S1SLC_CVDL'](root='./data', transform=transform, use_s3=True)
+        item = dataset[0]
 
-    trainset = dataset_map[dataset_name.lower()](root='./data', train=True, download=True, transform=transform_train)
-    testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
+        # Learn about bucket, key, and content of the object
+        content = item.read()
+        print(f"Bucket: {item.bucket}")
+        print(f"Key: {item.key}")
+        print(f"Type: {type(content)}")
+        print(f"Inner content type: {type(content[0])}")
+        print(f"Item: {content}")
+
+
     print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
 
 
 
 def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, DataLoader]:
-    train_set, test_set = get_datasets(dataset_name)
+    train_set, test_set = get_dataset(dataset_name)
 
     train_loader = DataLoader(
         train_set,
@@ -56,3 +68,7 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
     )
 
     return train_loader, test_loader
+
+
+if __name__ == "__main__":
+    get_dataset('S1SLC_CVDL')

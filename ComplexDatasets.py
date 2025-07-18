@@ -9,6 +9,7 @@ from s3torchconnector import S3MapDataset
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split 
+import torchvision.transforms as transform
 from ProgressFile import ProgressFile
 
 
@@ -40,22 +41,22 @@ class CustomDataset(Dataset):
 
 def S1SLC_CVDL( # Call this method only.
         root: Union[str, Path],
-        training_split: Optional[Iterable] = None,
+        split: Optional[Iterable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        use_S3: bool = False, 
+        use_s3: bool = False, 
 ) -> Union[S3MapDataset, CustomDataset, list[Subset[tuple[Tensor,...]]]]:
 
     """ Made for arbitrary usage as a replacement for PyTorch Datasets """
 
-    if use_S3:
-        return _get_S3_stream()
+    if use_s3:
+        return _get_S3_stream(transform)
     else: 
         base_dir = "S1SLC_CVDL"
         return _load_saved_dataset(
             root_dir=root,
             base_dir=base_dir,
-            training_split=training_split,
+            training_split=split,
             transform=transform,
             target_transform=target_transform,
         )
@@ -141,12 +142,14 @@ def validate_args(
         raise ValueError(f"Values in training_split must sum to 1. Got: {fsum(training_split)}")
 
 
-def _get_S3_stream() -> S3MapDataset:
+def _get_S3_stream(transform: Optional[Callable] = None) -> S3MapDataset:
     URI = "s3://ieee-dataport/open/98396/S1SLC_CVDL.rar"
     REGION = "us-east-1"
     try:
         load_dotenv() # AWS secret ID & Secret key must be stored in a .env file for accessing the SLSLC_CVDL. If such a file does not exist, create one.
-        return S3MapDataset.from_prefix(URI, region=REGION) # S3MapDataset streams data from an S3 bucket rather than downloading the full dataset. 
+        if transform is not None:
+            return S3MapDataset.from_prefix(URI, region=REGION, transform=transform) # S3MapDataset streams data from an S3 bucket rather than downloading the full dataset. 
+        return S3MapDataset.from_prefix(URI, region=REGION)
     except FileNotFoundError:
         print(".env file not found in project root directory and is required for download.")
         print("Create this file in the project root and place your IEEE-dataport AWS secret ID and secret key inside with the following format:")
@@ -156,7 +159,7 @@ def _get_S3_stream() -> S3MapDataset:
 
 
 if __name__ == "__main__":
-    train, val, test = S1SLC_CVDL("./data", training_split=[0.7, 0.2, 0.1])
+    train, val, test = S1SLC_CVDL("./data", split=[0.7, 0.2, 0.1])
     print(f"\nTraining Data Shape: {train[0].shape}")
     print(f"Validation Data Shape: {val[0].shape}")
     print(f"Test Data Shape: {test[0].shape}")
