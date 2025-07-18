@@ -201,8 +201,8 @@ def _make_mini_dataset(
     HV_array = np.array(HV_data)
     labels_array = np.array(label_data)
 
-    HH_Complex_Patches, HV_Complex_Patches, Labels = balance_dataset_multi((HH_array, HV_array), labels=labels_array, n_samples_per_class=num_samples)
-    save_arrays((HH_Complex_Patches, HV_Complex_Patches, Labels), path="./data/mini_S1SLC_CVDL/")
+    HH_Complex_Patches, HV_Complex_Patches, Labels = balance_dataset_multi(HH_array, HV_array, labels=labels_array, n_samples_per_class=num_samples)
+    save_arrays(HH_Complex_Patches, HV_Complex_Patches, Labels, path="./data/mini_S1SLC_CVDL/")
 
 
 
