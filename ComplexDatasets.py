@@ -118,7 +118,7 @@ def _load_np_from_file(path: str) -> np.array:
     with ProgressFile(path, "rb", desc=f'reading {path}') as f:
         array = np.load(f)
         if array.dtype == np.complex128:
-            array = array.astype(np.complex16)# quantize for memory purposes
+            array = array.astype(np.complex32)# quantize for memory purposes
         f.close()
     return array
 
