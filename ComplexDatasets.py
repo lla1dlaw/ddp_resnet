@@ -197,6 +197,10 @@ def _make_mini_dataset(
         HV_data.extend(_load_np_from_file(HV_path))
         label_data.extend(_load_np_from_file(labels_path))
 
+    print(f"Num HH: {len(HH_data)}")
+    print(f"Num HV: {len(HV_data)}")
+    print(f"Num Labels: {len(label_data)}")
+
     HH_array = np.array(HH_data)
     HV_array = np.array(HV_data)
     labels_array = np.array(label_data)
