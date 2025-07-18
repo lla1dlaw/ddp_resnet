@@ -236,25 +236,6 @@ def init_weights(m):
             m.fc_r.weight.copy_(scaled_unitary.real)
             m.fc_i.weight.copy_(scaled_unitary.imag)
 
-class ZeroImag(nn.Module):
-    def __init__(self):
-        super(ZeroImag, self).__init__()
-    def forward(self, x):
-        return torch.zeros_like(x)
-
-class ImaginaryComponentLearner(nn.Module):
-    def __init__(self, channels):
-        super(ImaginaryComponentLearner, self).__init__()
-        self.layers = nn.Sequential(
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=False),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=False),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
-        )
-    def forward(self, x):
-        return self.layers(x)
 
 # MODULE: RESIDUAL BLOCKS
 # ========================
@@ -396,7 +377,7 @@ class ComplexBatchNorm2d(nn.Module):
                 f'track_running_stats={self.track_running_stats})')
 
 class ComplexResNet(nn.Module):
-    def __init__(self, architecture_type, activation_function, learn_imaginary_component, input_channels=2, num_classes=7):
+    def __init__(self, architecture_type, activation_function, input_channels=2, num_classes=7):
         super(ComplexResNet, self).__init__()
         configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
         config = configs[architecture_type]
@@ -406,10 +387,6 @@ class ComplexResNet(nn.Module):
         self.activation_fn_class = activation_map.get(activation_function.lower())
         if self.activation_fn_class is None:
             raise ValueError(f"Unknown activation function: {activation_function}")
-        if learn_imaginary_component:
-            self.imag_handler = ImaginaryComponentLearner(input_channels) 
-        else:
-            self.imag_handler = ZeroImag()
         self.initial_complex_op = nn.Sequential(
             ComplexConv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
             ComplexBatchNorm2d(self.initial_filters),
@@ -425,12 +402,10 @@ class ComplexResNet(nn.Module):
             current_channels *= 2
         final_channels = self.initial_filters * (2**(len(self.blocks_per_stage) - 1))
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = ComplexLinear(final_channels, num_classes)
+        self.fc = nn.Linear(final_channels*2, num_classes)
         self.apply(init_weights)
 
-    def forward(self, x_real):
-        x_imag = self.imag_handler(x_real)
-        x = torch.complex(x_real, x_imag)
+    def forward(self, x):
         x = self.initial_complex_op(x)
         for i, stage in enumerate(self.stages):
             x = stage(x)
@@ -445,7 +420,9 @@ class ComplexResNet(nn.Module):
         pooled_imag = self.avgpool(x.imag)
         x = torch.complex(pooled_real, pooled_imag)
         x = torch.flatten(x, 1)
-        x_complex_logits = self.fc(x)
-        return x_complex_logits.abs()
+        # converts tensor to a flattened real_valued tensor containing both the phase and magnitude values
+        x = torch.cat([x.abs(), x.angle()], dim=1)
+        logits = self.fc(x)
+        return logits
 
 
