@@ -63,7 +63,6 @@ class Trainer:
             if progress_bar is not None:
                 progress_bar.update(
                     task_id,
-                    f"Train Acc: {top1_acc:.4f}",
                     description=f"Epoch {epoch+1} ",
                     advance=1
                 )
@@ -117,11 +116,16 @@ class Trainer:
         with progress_context as progress_bar:
             task=None
             if self.gpu_id == 0:
-                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
+                task = progress_bar.add_task(description="Epoch 1 ",train_acc=" - ", val_acc = " - ", total=total_steps)
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 val_loss, val_top1, val_top5 = self.validate()
                 if self.gpu_id == 0:
+                    progress_bar.update(
+                        task,
+                        train_acc=f"{train_top1:.4f}",
+                        val_acc=f"{val_top1:.4f}"
+                    )
                     run.log({
                         "train loss": epoch_loss,
                         "train acc": train_top1,

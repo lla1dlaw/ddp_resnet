@@ -19,7 +19,6 @@ def ddp_setup():
 
 
 def load_train_objs(dataset_name: str, batch_size: int):
-    print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  
     return train_loader, test_loader
 
@@ -30,6 +29,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     lr = base_lr * torch.cuda.device_count()
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
+        print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
