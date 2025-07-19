@@ -24,7 +24,7 @@ def load_train_objs(dataset_name: str, batch_size: int):
     return train_loader, test_loader
 
 
-def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
+def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int):
     ddp_setup()
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
@@ -36,7 +36,10 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         if rank == 0:
             print(f"\n---- Starting Trial {trial} ----")
             print(f"- Initializing model...")
-        model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
+        if model_type == 'complex':
+            model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
+        elif model_type == 'real':
+            model = RealResNet('IB')
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")
@@ -58,9 +61,10 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
+    parser.add_argument('--model-type', type=str, default='complex', choices=['complex, real'])
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
     rank = int(os.environ["SLURM_PROCID"])
 
-    main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials)
+    main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.model_type, args.architecture, args.activation, args.trials)
