@@ -12,22 +12,33 @@ from Trainer import Trainer
 from Datasets import get_dataloaders
 
 
+import pretty_errors
+import torch
+import torch.multiprocessing as mp
+import torch.distributed as td
+from torch.distributed import init_process_group, destroy_process_group
+
+import os
+import math
+
+from models import RealResNet, ComplexResNet
+from Trainer import Trainer
+from Datasets import get_dataloaders
+
+
 def ddp_setup():
     """
     Sets up the distributed data parallel environment.
     Assumes that MASTER_ADDR, MASTER_PORT, RANK, and WORLD_SIZE are in the environment.
     """
     print("- Configuring DDP...")
-    # The init_process_group function will automatically use the environment variables
     init_process_group(backend="nccl")
-    # Assign the correct GPU to the current process
-    # SLURM_LOCALID is the ID of the process on the current node (0, 1, 2, 3)
     torch.cuda.set_device(int(os.environ["SLURM_LOCALID"]))
 
 
 def load_train_objs(dataset_name: str, batch_size: int):
     print(f"- Loading Dataset {dataset_name.upper()}...")
-    train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
+    train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  
     return train_loader, test_loader
 
 
@@ -63,9 +74,7 @@ if __name__ == "__main__":
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     args = parser.parse_args()
 
-    # Get rank and world size from SLURM environment variables
     rank = int(os.environ["SLURM_PROCID"])
     world_size = int(os.environ["SLURM_NPROCS"])
 
-    # Call the main function directly. SLURM has already spawned a process for each GPU.
     main(rank, world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials)
