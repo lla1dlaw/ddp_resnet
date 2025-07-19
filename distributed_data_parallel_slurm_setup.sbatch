@@ -10,7 +10,7 @@
 #    Set --mem to about 10*X (e.g. 20G for two GPUs per node, if your job needs 10GB of RAM per GPU)
 #    This will give nodes*X total GPUs
 
-#SBATCH --nodes=1
+#SBATCH --nodes=2
 #SBATCH --partition=gpu
 #SBATCH --gpus-per-node=4
 #SBATCH --ntasks-per-node=4
