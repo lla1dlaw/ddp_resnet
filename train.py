@@ -32,8 +32,8 @@ def load_train_objs(dataset_name: str, batch_size: int):
 
 
 def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
-    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
     ddp_setup(rank, world_size)
+    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
     train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
