@@ -67,6 +67,6 @@ if __name__ == "__main__":
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
-    rank = int(os.environ["SLURM_PROCID"])
+    rank = int(os.environ["LOCAL_RANK"])
 
     main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.model_type, args.architecture, args.activation, args.trials)
