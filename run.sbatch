@@ -24,8 +24,8 @@
 # Master will be the one running this bash script (SLURM runs this only once)
 # Get hostname and port on first node first process
 # For the port see: https://unix.stackexchange.com/questions/55913/whats-the-easiest-way-to-find-an-unused-local-port
-master_addr=$("localhost")
-master_port=$("12345")
+master_addr="localhost"
+master_port="12345"
 
 module purge
 module load mamba
