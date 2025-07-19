@@ -47,4 +47,4 @@ echo "---------------------------"
 
 # --- Call the Script which the User will Edit ---
 # With srun this will be run on all nodes for all processes
-srun ./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port
+srun ./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port --suppres_runtime_error
