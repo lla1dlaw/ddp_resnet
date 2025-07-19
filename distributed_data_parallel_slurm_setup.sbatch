@@ -10,7 +10,7 @@
 #   This will give nodes*X total GPUs
 
 #SBATCH --nodes=4
-#SBATCH -p=shortgpu-l40
+#SBATCH --partition=shortgpu-l40
 #SBATCH --ntasks-per-node=16
 #SBATCH --gres=gpu:L40:16
 #SBATCH --cpus-per-task=6
