@@ -60,7 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_every', type=int, default=math.inf, help='How often to save a snapshot')
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=1024, type=int, help='Input batch size on each device (default: 1024)')
-    parser.add_arguemnt('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
+    parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     args = parser.parse_args()
 
     world_size = torch.cuda.device_count()
