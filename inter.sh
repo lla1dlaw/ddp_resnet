@@ -1,7 +1,7 @@
 #!/bin/bash
 
-srun --nodes=1 --partition=gpu-l40 --gpus-per-node=4 --ntasks-per-node=1 --cpus-per-task=12 --pty bash -i
 
+COMMANDS=$cat << 'EOF'
 module purge
 module load cudnn8.5-cuda11.7/8.5.0.96
 echo "Modules loaded."
@@ -18,3 +18,14 @@ torchrun \
   --nproc_per_node=$SLURM_TASKS_PER_NODE \
   --nnodes=$SLURM_NNODES \
   train.py --epochs 200 --batch_size 64 --dataset cifar10 --model-type real
+
+EOF
+)
+srun \
+  --nodes=1 \
+  --partition=gpu-l40 \
+  --gpus-per-node=4 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=12 \
+  --pty \
+  bash -c "$COMMANDS" 
