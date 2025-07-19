@@ -14,7 +14,7 @@
 #SBATCH --partition=gpu-l40
 #SBATCH --gpus-per-node=4
 #SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=48
+#SBATCH --cpus-per-task=12
 #SBATCH --time=72:00:00
 #SBATCH --output=./logs/output.log
 #SBATCH --mail-user=liamlaidlaw04@gmail.com
