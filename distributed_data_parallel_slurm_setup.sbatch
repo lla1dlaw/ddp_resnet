@@ -15,7 +15,6 @@
 #SBATCH --gpus-per-node=4
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=12
-#SBATCH --time=36:00:00
 #SBATCH --output=./logs/output.log
 #SBATCH --mail-user=liamlaidlaw04@gmail.com
 #SBATCH --mail-type=ALL
