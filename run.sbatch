@@ -27,4 +27,4 @@ torchrun \
   --standalone \
   --nproc_per_node=$SLURM_TASKS_PER_NODE \
   --nnodes=$SLURM_NNODES \
-  train.py --epochs 2 --batch_size 64 --dataset cifar10 --model-type real
+  train.py --epochs 200 --batch_size 64 --dataset cifar10 --model-type real
