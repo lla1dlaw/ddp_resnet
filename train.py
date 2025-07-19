@@ -1,26 +1,8 @@
 import pretty_errors
-import torch
-import torch.multiprocessing as mp
-import torch.distributed as td
-from torch.distributed import init_process_group, destroy_process_group
-
 import os
 import math
-
-from models import RealResNet, ComplexResNet
-from Trainer import Trainer
-from Datasets import get_dataloaders
-
-
-import pretty_errors
 import torch
-import torch.multiprocessing as mp
-import torch.distributed as td
 from torch.distributed import init_process_group, destroy_process_group
-
-import os
-import math
-
 from models import RealResNet, ComplexResNet
 from Trainer import Trainer
 from Datasets import get_dataloaders
@@ -55,7 +37,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
         print(f"- Initializing Trainer...")
-        trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every, trial)
+        trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial)
         trainer.train(total_epochs)
     print(f"- Rank {rank} training complete.")
     destroy_process_group()

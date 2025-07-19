@@ -1,8 +1,8 @@
 """An abstracted trainer that wraps a model in DDP and handles training."""
+import os
 from datetime import datetime
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from rich.progress import Progress
@@ -18,18 +18,17 @@ class Trainer:
         train_data: DataLoader,
         validation_data: DataLoader,
         optimizer: torch.optim.Optimizer,
-        gpu_id: int,
         save_every: int,
         trial:int,
     ) -> None:
-        self.gpu_id = gpu_id
-        self.model = model.to(gpu_id)
+        self.gpu_id = int(os.environ["LOCAL_RANK"])
+        self.model = model.to(self.gpu_id)
         self.train_data = train_data
         self.validation_data = validation_data
         self.optimizer = optimizer
         self.save_every = save_every
         self.num_classes = model.num_classes
-        self.model = DDP(model,  device_ids=[gpu_id])
+        self.model = DDP(model,  device_ids=[self.gpu_id])
         self.trial = trial
 
     def _run_batch(self, inputs, targets, criterion):
@@ -49,9 +48,9 @@ class Trainer:
 
     def _run_epoch(self, epoch, progress_bar, task_id):
         loss_total = 0
-        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
-        criterion = nn.CrossEntropyLoss()
+        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
+        criterion = nn.CrossEntropyLoss().to(self.gpu_id)
         self.train_data.sampler.set_epoch(epoch)
 
         self.model.train()
@@ -71,10 +70,10 @@ class Trainer:
         return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item(), epoch_duration_seconds
 
     def validate(self):
-        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
+        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
         total_loss = 0
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss().to(self.gpu_id)
 
         self.model.eval()
 
