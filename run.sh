@@ -3,7 +3,7 @@
 FILE_TO_WAIT_FOR="./logs/output.log"
 TIMEOUT_SECONDS=60 # Optional: set a timeout
 
-rm ./logs/*
+rm -r ./logs/*
 sbatch run.sbatch
 echo "Waiting for $FILE_TO_WAIT_FOR to be created..."
 
