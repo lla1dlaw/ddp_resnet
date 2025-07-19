@@ -99,7 +99,7 @@ class Trainer:
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
                 project="CIFAR10-RealResNet",
-                name=f"Trial_{self.trial}",
+                name=f"Trial_{self.trial}_{datetime.now()}",
                 config={
                     "architecture": "ComplexResNet",
                     "dataset": 'S1SLC_CVDL',
