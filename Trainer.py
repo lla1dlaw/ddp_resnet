@@ -37,14 +37,14 @@ class Trainer:
         outputs = self.model(inputs)
         print(targets.shape)
         print(targets)
-        loss = criterion(outputs, targets)
+        loss = criterion(outputs, targets.squeeze())
         loss.backward()
         self.optimizer.step()
         return loss.item(), outputs
 
     def _run_val_batch(self, inputs, targets, criterion):
         outputs = self.model(inputs)
-        loss = criterion(outputs, targets)
+        loss = criterion(outputs, targets.squeeze())
         return loss.item(), outputs
 
     def _run_epoch(self, epoch, progress_bar, task_id):
