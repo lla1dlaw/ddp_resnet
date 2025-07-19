@@ -101,7 +101,7 @@ def _load_saved_dataset(
     elif polarization is None: # treats each set of data as a separate channel 
         inputs = np.stack((HH_array, HV_array), axis=1) 
 
-    labels = np.array(label_data).reshape(-1).astype(np.int64)
+    labels = np.array(label_data).astype(np.int64)
     dataset = CustomDataset(
         (inputs, labels),
         transform=transform,

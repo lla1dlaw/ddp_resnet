@@ -1,6 +1,7 @@
 """An abstracted trainer that wraps a model in DDP and handles training."""
 from datetime import datetime
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -31,12 +32,12 @@ class Trainer:
         self.model = DDP(model,  device_ids=[gpu_id])
         self.trial = trial
 
-    def _run_batch(self, inputs, targets):
+    def _run_batch(self, inputs, targets, criterion):
         self.optimizer.zero_grad()
         outputs = self.model(inputs)
         print(targets.shape)
         print(targets)
-        loss = F.cross_entropy(outputs, targets)
+        loss = criterion(outputs, targets)
         loss.backward()
         self.optimizer.step()
         return loss.item(), outputs
@@ -50,6 +51,7 @@ class Trainer:
         loss_total = 0
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
         top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
+        criterion = nn.CrossEntropyLoss()
         self.train_data.sampler.set_epoch(epoch)
 
         self.model.train()
@@ -57,7 +59,7 @@ class Trainer:
         for inputs, targets in self.train_data:
             inputs = inputs.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
-            loss, outputs = self._run_batch(inputs, targets)
+            loss, outputs = self._run_batch(inputs, targets, criterion)
             loss_total += loss
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
