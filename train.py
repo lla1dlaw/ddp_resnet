@@ -41,7 +41,7 @@ def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset
     train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch, activation)
     print(f"- Initializing Trainer...")
     trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
-    print(f"- Straning train loop with {td.get_world_size()} GPUs in DDP\n")
+    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
     trainer.train(total_epochs)
     print("- Training Compete.")
     destroy_process_group()
