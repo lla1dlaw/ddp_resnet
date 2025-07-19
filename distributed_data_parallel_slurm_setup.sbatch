@@ -29,6 +29,7 @@ master_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); prin
 
 module purge
 module load mamba
+module load slurm
 module load cudnn8.5-cuda11.7/8.5.0.96
 module load gcc/10.2.0
 echo "Modules loaded."
