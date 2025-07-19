@@ -5,7 +5,8 @@ COMMANDS=$(
 module purge
 module load cudnn8.5-cuda11.7/8.5.0.96
 echo "Modules loaded."
-
+module load conda 
+conda init bash
 conda activate FederatedResnet
 echo "Activated Conda environment: $CONDA_DEFAULT_ENV"
 
