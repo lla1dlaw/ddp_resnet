@@ -34,6 +34,8 @@ class Trainer:
     def _run_batch(self, inputs, targets):
         self.optimizer.zero_grad()
         outputs = self.model(inputs)
+        print(outputs.shape)
+        print(outputs)
         loss = F.cross_entropy(outputs, targets)
         loss.backward()
         self.optimizer.step()
