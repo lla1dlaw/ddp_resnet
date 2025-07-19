@@ -33,7 +33,7 @@ def ddp_setup():
     """
     print("- Configuring DDP...")
     init_process_group(backend="nccl")
-    torch.cuda.set_device(int(os.environ["SLURM_LOCALID"]))
+    torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 
 def load_train_objs(dataset_name: str, batch_size: int):
@@ -42,9 +42,9 @@ def load_train_objs(dataset_name: str, batch_size: int):
     return train_loader, test_loader
 
 
-def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
+def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
     ddp_setup()
-    print(f"- Starting Train Loop on Rank {rank} with {world_size} GPUs in DDP\n")
+    print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
     train_loader, test_loader = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
@@ -72,9 +72,9 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
+    parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
     rank = int(os.environ["SLURM_PROCID"])
-    world_size = int(os.environ["SLURM_NPROCS"])
 
-    main(rank, world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials)
+    main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials)

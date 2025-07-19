@@ -15,7 +15,7 @@ done
 
 if [ -f "$FILE_TO_WAIT_FOR" ]; then
   echo "$FILE_TO_WAIT_FOR has been created."
-  tail -f -n 100 -s $FILE_TO_WAIT_FOR
+  tail -f -n 100 $FILE_TO_WAIT_FOR
 else
   echo "Timeout: $FILE_TO_WAIT_FOR was not created within $TIMEOUT_SECONDS seconds."
   exit 1 # Exit with an error code
