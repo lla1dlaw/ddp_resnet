@@ -61,7 +61,12 @@ class Trainer:
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
             if progress_bar is not None:
-                progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
+                progress_bar.update(
+                    task_id,
+                    f"Train Acc: {top1_acc:.4f}",
+                    description=f"Epoch {epoch+1} ",
+                    advance=1
+                )
         epoch_end = datetime.now()
         total_epoch_duration = epoch_end - epoch_start
         epoch_duration_seconds = total_epoch_duration.total_seconds()
