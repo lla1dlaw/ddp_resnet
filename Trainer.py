@@ -5,10 +5,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torchmetrics.classification import MulticlassAccuracy
 from rich.progress import Progress
 import wandb
-
-from torchmetrics.classification import MulticlassAccuracy
+import contextlib
 
 
 class Trainer:
@@ -60,7 +60,7 @@ class Trainer:
             loss_total += loss
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
-            if self.gpu_id == 0:
+            if progress_bar is not None:
                 progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
         epoch_end = datetime.now()
         total_epoch_duration = epoch_end - epoch_start
@@ -106,8 +106,10 @@ class Trainer:
                     "epochs": max_epochs,
                 },
             )
-        total_steps = max_epochs * len(self.train_data) 
-        with Progress() as progress_bar:
+        total_steps = max_epochs * len(self.train_data)
+
+        progress_context = Progress() if self.gpu_id == 0 else contextlib.nullcontext()
+        with progress_context as progress_bar:
             if self.gpu_id == 0:
                 task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
