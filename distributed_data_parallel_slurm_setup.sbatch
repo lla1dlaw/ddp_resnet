@@ -4,16 +4,17 @@
 
 # SLURM SUBMIT SCRIPT
 # Rules:
-#   Set --nodes to the number of nodes
-#   Set --gres=gpu:X,VRAM:24G and --ntasks-per-node=X to the same number
-#   Set --mem to about 10*X (e.g. 20G for two GPUs per node, if your job needs 10GB of RAM per GPU)
-#   This will give nodes*X total GPUs
+#    Set --nodes to the number of nodes
+#    Set --gpus-per-node to the number of GPUs you want to use on each node
+#    Set --ntasks-per-node to be equal to --gpus-per-node
+#    Set --mem to about 10*X (e.g. 20G for two GPUs per node, if your job needs 10GB of RAM per GPU)
+#    This will give nodes*X total GPUs
 
 #SBATCH --nodes=2
 #SBATCH --partition=gpu
+#SBATCH --gpus-per-node=4
 #SBATCH --ntasks-per-node=4
-#SBATCH --gres=gpu:8
-#SBATCH --cpus-per-task=48
+#SBATCH --cpus-per-task=12
 #SBATCH --time=36:00:00
 #SBATCH --output=./logs/output.log
 #SBATCH --mail-user=liamlaidlaw04@gmail.com
@@ -45,4 +46,4 @@ echo "---------------------------"
 
 # --- Call the Script which the User will Edit ---
 # With srun this will be run on all nodes for all processes
-srun --gres=gpu:1 ./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port
+srun ./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port
