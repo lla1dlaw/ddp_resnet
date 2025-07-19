@@ -9,10 +9,10 @@
 #   Set --mem to about 10*X (e.g. 20G for two GPUs per node, if your job needs 10GB of RAM per GPU)
 #   This will give nodes*X total GPUs
 
-#SBATCH --nodes=4
-#SBATCH --partition=shortgpu-l40
-#SBATCH --ntasks-per-node=16
-#SBATCH --gres=gpu:L40:16
+#SBATCH --nodes=2
+#SBATCH --partition=gpu-l40
+#SBATCH --ntasks-per-node=8
+#SBATCH --gres=gpu:L40:8
 #SBATCH --cpus-per-task=48
 #SBATCH --time=10:00:00
 #SBATCH --output=./output.log
