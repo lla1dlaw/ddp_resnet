@@ -34,8 +34,6 @@ class Trainer:
     def _run_batch(self, inputs, targets, criterion):
         self.optimizer.zero_grad()
         outputs = self.model(inputs)
-        print(targets.shape)
-        print(targets)
         loss = criterion(outputs, targets)
         loss.backward()
         self.optimizer.step()
