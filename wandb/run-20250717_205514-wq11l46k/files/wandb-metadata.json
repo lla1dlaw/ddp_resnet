@@ -1,0 +1,98 @@
+{
+  "os":  "Linux-3.10.0-1160.119.1.el7.x86_64-x86_64-with-glibc2.17",
+  "python":  "CPython 3.11.13",
+  "startedAt":  "2025-07-18T02:55:14.260419Z",
+  "program":  "/bsuhome/liamlaidlaw/ddp_resnet/train.py",
+  "codePath":  "train.py",
+  "codePathLocal":  "train.py",
+  "git":  {
+    "remote":  "https://github.com/lla1dlaw/ddp_resnet.git",
+    "commit":  "e93d2b377d9188be77e8738d0349eca9421944e2"
+  },
+  "email":  "liamlaidlaw@boisestate.edu",
+  "root":  "/bsuhome/liamlaidlaw/ddp_resnet",
+  "host":  "gpu101",
+  "executable":  "/bsuhome/liamlaidlaw/miniforge3/envs/FederatedResnet/bin/python",
+  "cpu_count":  48,
+  "cpu_count_logical":  48,
+  "gpu":  "Tesla V100-PCIE-16GB",
+  "gpu_count":  2,
+  "disk":  {
+    "/":  {
+      "total":  "42928701440",
+      "used":  "14722560000"
+    }
+  },
+  "memory":  {
+    "total":  "404158652416"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "Tesla V100-PCIE-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-1f09fdae-477d-19e2-f484-dd9571f4219d"
+    },
+    {
+      "name":  "Tesla V100-PCIE-16GB",
+      "memoryTotal":  "17179869184",
+      "cudaCores":  5120,
+      "architecture":  "Volta",
+      "uuid":  "GPU-e0ed0109-e4a7-9b9a-2c85-e1dd2f6fdac9"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "slurm":  {
+    "cluster_name":  "slurm",
+    "conf":  "/cm/shared/apps/slurm/var/etc/slurm/slurm.conf",
+    "cpus_on_node":  "24",
+    "gpus_on_node":  "1",
+    "gtids":  "0",
+    "job_account":  "liamlaidlaw",
+    "job_cpus_per_node":  "24",
+    "job_end_time":  "1752818563",
+    "job_gid":  "695487",
+    "job_gpus":  "0",
+    "job_id":  "2059353",
+    "job_name":  "DEVSESSION",
+    "job_nodelist":  "gpu101",
+    "job_num_nodes":  "1",
+    "job_partition":  "gpu-v100",
+    "job_qos":  "devsession",
+    "job_start_time":  "1752804163",
+    "job_uid":  "695487",
+    "job_user":  "liamlaidlaw",
+    "jobid":  "2059353",
+    "launch_node_ipaddr":  "172.18.0.14",
+    "localid":  "0",
+    "mpi_type":  "none",
+    "nnodes":  "1",
+    "nodeid":  "0",
+    "nodelist":  "gpu101",
+    "nprocs":  "24",
+    "ntasks":  "24",
+    "prio_process":  "0",
+    "procid":  "0",
+    "pty_port":  "36567",
+    "pty_win_col":  "175",
+    "pty_win_row":  "47",
+    "srun_comm_host":  "172.18.0.14",
+    "srun_comm_port":  "35095",
+    "step_id":  "4294967290",
+    "step_launcher_port":  "35095",
+    "step_nodelist":  "gpu101",
+    "step_num_nodes":  "1",
+    "step_num_tasks":  "1",
+    "step_tasks_per_node":  "1",
+    "stepid":  "4294967290",
+    "submit_dir":  "/bsuhome/liamlaidlaw",
+    "submit_host":  "borah-login",
+    "task_pid":  "132816",
+    "tasks_per_node":  "24",
+    "topology_addr":  "gpu101",
+    "topology_addr_pattern":  "node",
+    "working_cluster":  "slurm:borah-hn001:6817:9984:109"
+  },
+  "writerId":  "2dslf1l0kdat1zo3ak5v20fd25uy113o"
+}

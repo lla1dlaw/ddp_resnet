@@ -1,0 +1,49 @@
+Please see `nvm --help` or https://github.com/nvm-sh/nvm#nvmrc for more information.
+ERROR: Unable to locate a modulefile for 'mamba'
+Loading cudnn8.5-cuda11.7/8.5.0.96
+  Loading requirement: cuda11.7/toolkit/11.7.1
+Modules loaded.
+Activated Conda environment: FederatedResnet
+--- Running Diagnostics ---
+Fri Jul 18 20:07:24 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA L40S                    On  |   00000000:49:00.0 Off |                    0 |
+| N/A   27C    P8             33W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA L40S                    On  |   00000000:61:00.0 Off |                    0 |
+| N/A   28C    P8             33W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA L40S                    On  |   00000000:C9:00.0 Off |                    0 |
+| N/A   29C    P8             32W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA L40S                    On  |   00000000:E1:00.0 Off |                    0 |
+| N/A   29C    P8             33W /  350W |       1MiB /  46068MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Python path: /bsuhome/liamlaidlaw/miniforge3/envs/FederatedResnet/bin/python
+PyTorch version: 2.6.0+cu124
+CUDA available: True
+GPU Count: 4
+---------------------------
+slurmstepd: error: execve(): /bsuhome/liamlaidlaw/ddp_resnet/./distributed_data_parallel_slurm_run.bash: Permission denied
+slurmstepd: error: execve(): /bsuhome/liamlaidlaw/ddp_resnet/./distributed_data_parallel_slurm_run.bash: Permission denied
+slurmstepd: error: execve(): /bsuhome/liamlaidlaw/ddp_resnet/./distributed_data_parallel_slurm_run.bash: Permission denied
+slurmstepd: error: execve(): /bsuhome/liamlaidlaw/ddp_resnet/./distributed_data_parallel_slurm_run.bash: Permission denied
+srun: error: gpu115: tasks 0-3: Exited with exit code 13
