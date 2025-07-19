@@ -26,6 +26,8 @@ def load_train_objs(dataset_name: str, batch_size: int):
 
 def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int):
     ddp_setup()
+    base_lr = 0.01
+    lr = base_lr * torch.cuda.device_count()
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
     train_loader, test_loader = load_train_objs(dataset_name, batch_size)
@@ -40,7 +42,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
             model = RealResNet('IB')
-        optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")
         trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial)
