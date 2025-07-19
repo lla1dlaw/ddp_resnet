@@ -13,7 +13,7 @@
 #SBATCH --partition=shortgpu-l40
 #SBATCH --ntasks-per-node=16
 #SBATCH --gres=gpu:L40:16
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=48
 #SBATCH --time=10:00:00
 #SBATCH --output=./output.log
 
