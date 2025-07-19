@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
-    parser.add_argument('--model-type', type=str, default='complex', choices=['complex, real'])
+    parser.add_argument('--model-type', type=str, default='complex', choices=['complex', 'real'])
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
