@@ -42,9 +42,9 @@ class Trainer:
         self.optimizer.step()
         return loss.item(), outputs
 
-    def _run_val_batch(self, inputs, targets):
+    def _run_val_batch(self, inputs, targets, criterion):
         outputs = self.model(inputs)
-        loss = F.cross_entropy(outputs, targets)
+        loss = criterion(outputs, targets)
         return loss.item(), outputs
 
     def _run_epoch(self, epoch, progress_bar, task_id):
@@ -74,6 +74,7 @@ class Trainer:
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1)
         top5_acc = MulticlassAccuracy(self.num_classes, top_k=5)
         total_loss = 0
+        criterion = nn.CrossEntropyLoss()
 
         self.model.eval()
 
@@ -81,7 +82,7 @@ class Trainer:
             for inputs, targets in self.validation_data:
                 inputs = inputs.to(self.gpu_id)
                 targets = targets.to(self.gpu_id)
-                loss, outputs = self._run_val_batch(inputs, targets)
+                loss, outputs = self._run_val_batch(inputs, targets, criterion)
                 top1_acc.update(outputs, targets)
                 top5_acc.update(outputs, targets)
                 total_loss += loss
