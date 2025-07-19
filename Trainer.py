@@ -97,7 +97,7 @@ class Trainer:
         if self.gpu_id == 0:
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
-                project="SAR_ComplexResNet",
+                project="HH_SAR_ComplexResNet",
                 name=f"Trial_{self.trial}",
                 config={
                     "architecture": "ComplexResNet",
