@@ -29,8 +29,7 @@ def get_dataset(dataset_name: str):
         trainset = dataset_map[dataset_name.lower()](root='./data', train=True, download=True, transform=transform_train)
         testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
     elif dataset_name == 'S1SLC_CVDL':
-        # transform = transforms.ToTensor()
-        transform = transforms.Compose([transforms.ToTensor()])
+        transform = None
         trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', split=[0.8, 0.2], transform=transform, polarization='HH')
 
     print(f"{dataset_name.upper()} datasets loaded successfully.")
