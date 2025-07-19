@@ -94,32 +94,35 @@ class Trainer:
         torch.save(ckp, PATH)
 
     def train(self, max_epochs: int):
-        run = wandb.init(
-            entity="liamlaidlaw-boise-state-university",
-            project="SAR_ComplexResNet",
-            name=f"Trial_{self.trial}",
-            config={
-                "architecture": "ComplexResNet",
-                "dataset": 'S1SLC_CVDL',
-                "epochs": max_epochs,
-            },
-        )
+        if self.gpu_id == 0:
+            run = wandb.init(
+                entity="liamlaidlaw-boise-state-university",
+                project="SAR_ComplexResNet",
+                name=f"Trial_{self.trial}",
+                config={
+                    "architecture": "ComplexResNet",
+                    "dataset": 'S1SLC_CVDL',
+                    "epochs": max_epochs,
+                },
+            )
         total_steps = max_epochs * len(self.train_data) 
         with Progress() as progress_bar:
             task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 val_loss, val_top1, val_top5 = self.validate()
-                run.log({
-                    "train loss": epoch_loss,
-                    "train acc": train_top1,
-                    "train top5 acc": train_top5,
-                    "val loss": val_loss,
-                    "val acc": val_top1,
-                    "val top5 acc": val_top5,
-                    "epoch_duration_sec": epoch_duration,
-                })
+                if self.gpu_id == 0:
+                    run.log({
+                        "train loss": epoch_loss,
+                        "train acc": train_top1,
+                        "train top5 acc": train_top5,
+                        "val loss": val_loss,
+                        "val acc": val_top1,
+                        "val top5 acc": val_top5,
+                        "epoch_duration_sec": epoch_duration,
+                    })
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
                     self._save_checkpoint(epoch)
-        run.finish()
+        if self.gpu_id == 0:
+            run.finish()
 

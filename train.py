@@ -26,19 +26,23 @@ def load_train_objs(dataset_name: str, batch_size: int):
 
 def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
     ddp_setup()
-    print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
+    if rank == 0:
+        print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
     train_loader, test_loader = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
     for trial in range(num_trials):
-        print(f"\n---- Starting Trial {trial} on Rank {rank}----")
-        print(f"- Initializing model...")
+        if rank == 0:
+            print(f"\n---- Starting Trial {trial} ----")
+            print(f"- Initializing model...")
         model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
-        print(f"- Initializing Trainer...")
+        if rank == 0:
+            print(f"- Initializing Trainer...")
         trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial)
         trainer.train(total_epochs)
+
     print(f"- Rank {rank} training complete.")
     destroy_process_group()
 
