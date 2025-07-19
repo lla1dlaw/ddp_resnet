@@ -46,5 +46,4 @@ python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f
 echo "---------------------------"
 
 # --- Call the Script which the User will Edit ---
-# With srun this will be run on all nodes for all processes
-./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port --suppres_runtime_error
+python train.py
