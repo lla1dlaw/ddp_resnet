@@ -60,7 +60,8 @@ class Trainer:
             loss_total += loss
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
-            progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
+            if self.gpu_id == 0:
+                progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
         epoch_end = datetime.now()
         total_epoch_duration = epoch_end - epoch_start
         epoch_duration_seconds = total_epoch_duration.total_seconds()
@@ -107,7 +108,8 @@ class Trainer:
             )
         total_steps = max_epochs * len(self.train_data) 
         with Progress() as progress_bar:
-            task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
+            if self.gpu_id == 0:
+                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 val_loss, val_top1, val_top5 = self.validate()
