@@ -1,9 +1,10 @@
 #!/bin/bash
 
-FILE_TO_WAIT_FOR="./logs/output.log"
+cd ./logs/
+FILE_TO_WAIT_FOR="output.log"
 TIMEOUT_SECONDS=60 # Optional: set a timeout
 
-rm -r ./logs/*
+rm -r ./*
 sbatch run.sbatch
 echo "Waiting for $FILE_TO_WAIT_FOR to be created..."
 
