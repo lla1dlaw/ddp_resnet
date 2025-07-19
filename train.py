@@ -12,17 +12,17 @@ from Trainer import Trainer
 from Datasets import get_dataloaders
 
 
-def ddp_setup(rank, world_size):
+def ddp_setup():
     """
-    Args:
-        rank: Unique identifier of each process
-        world_size: Total number of processes
+    Sets up the distributed data parallel environment.
+    Assumes that MASTER_ADDR, MASTER_PORT, RANK, and WORLD_SIZE are in the environment.
     """
     print("- Configuring DDP...")
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
-    torch.cuda.set_device(rank)
-    init_process_group(backend="nccl", rank=rank, world_size=world_size)
+    # The init_process_group function will automatically use the environment variables
+    init_process_group(backend="nccl")
+    # Assign the correct GPU to the current process
+    # SLURM_LOCALID is the ID of the process on the current node (0, 1, 2, 3)
+    torch.cuda.set_device(int(os.environ["SLURM_LOCALID"]))
 
 
 def load_train_objs(dataset_name: str, batch_size: int):
@@ -32,21 +32,21 @@ def load_train_objs(dataset_name: str, batch_size: int):
 
 
 def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
-    ddp_setup(rank, world_size)
-    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
+    ddp_setup()
+    print(f"- Starting Train Loop on Rank {rank} with {world_size} GPUs in DDP\n")
     train_loader, test_loader = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
     for trial in range(num_trials):
-        print(f"\n---- Starting Trial {trial} ----")
+        print(f"\n---- Starting Trial {trial} on Rank {rank}----")
         print(f"- Initializing model...")
         model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
         print(f"- Initializing Trainer...")
         trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every, trial)
         trainer.train(total_epochs)
-    print("- Training Compete.")
+    print(f"- Rank {rank} training complete.")
     destroy_process_group()
 
 
@@ -63,7 +63,9 @@ if __name__ == "__main__":
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     args = parser.parse_args()
 
-    world_size = torch.cuda.device_count()
+    # Get rank and world size from SLURM environment variables
+    rank = int(os.environ["SLURM_PROCID"])
+    world_size = int(os.environ["SLURM_NPROCS"])
 
-    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials), nprocs=world_size)
-
+    # Call the main function directly. SLURM has already spawned a process for each GPU.
+    main(rank, world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials)
