@@ -19,6 +19,7 @@ class Trainer:
         optimizer: torch.optim.Optimizer,
         gpu_id: int,
         save_every: int,
+        trial:int,
     ) -> None:
         self.gpu_id = gpu_id
         self.model = model.to(gpu_id)
@@ -28,6 +29,7 @@ class Trainer:
         self.save_every = save_every
         self.num_classes = model.num_classes
         self.model = DDP(model,  device_ids=[gpu_id])
+        self.trial = trial
 
     def _run_batch(self, inputs, targets):
         self.optimizer.zero_grad()
@@ -78,7 +80,7 @@ class Trainer:
                 total_loss += loss
 
         epoch_loss = total_loss / len(self.validation_data)
-        return epoch_loss, top1_acc.compute().item(), top5_acc.compue().item()
+        return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item()
 
 
     def _save_checkpoint(self, epoch):
@@ -89,10 +91,11 @@ class Trainer:
     def train(self, max_epochs: int):
         run = wandb.init(
             entity="liamlaidlaw-boise-state-university",
-            project="Real-Federated-ResNet",
+            project="SAR_ComplexResNet",
+            name=f"Trial_{self.trial}",
             config={
-                "architecture": "ResNet",
-                "dataset": 'CIFAR10',
+                "architecture": "ComplexResNet",
+                "dataset": 'S1SLC_CVDL',
                 "epochs": max_epochs,
             },
         )

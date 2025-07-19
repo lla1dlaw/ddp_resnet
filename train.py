@@ -25,24 +25,27 @@ def ddp_setup(rank, world_size):
     init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
 
-def load_train_objs(dataset_name: str, batch_size: int, arch: str, activation: str):
+def load_train_objs(dataset_name: str, batch_size: int):
     print(f"- Loading Dataset {dataset_name.upper()}...")
     train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  # load your dataset
+    return train_loader, test_loader
+
+
+def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str, num_trials: int):
+    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
+    ddp_setup(rank, world_size)
+    train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
-    print(f"- Initializing model...")
-    model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
-    return train_loader, test_loader, model, optimizer
 
-
-def main(rank: int, world_size: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, arch: str, activation: str):
-    ddp_setup(rank, world_size)
-    train_loader, test_loader, model, optimizer = load_train_objs(dataset_name, batch_size, arch, activation)
-    print(f"- Initializing Trainer...")
-    trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every)
-    print(f"- Starting Train Loop With {td.get_world_size()} GPUs in DDP\n")
-    trainer.train(total_epochs)
+    for trial in range(num_trials):
+        print(f"\n---- Starting Trial {trial} ----")
+        print(f"- Initializing model...")
+        model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
+        print(f"- Initializing Trainer...")
+        trainer = Trainer(model, train_loader, test_loader, optimizer, rank, save_every, trial)
+        trainer.train(total_epochs)
     print("- Training Compete.")
     destroy_process_group()
 
@@ -57,9 +60,10 @@ if __name__ == "__main__":
     parser.add_argument('--save_every', type=int, default=math.inf, help='How often to save a snapshot')
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=1024, type=int, help='Input batch size on each device (default: 1024)')
+    parser.add_arguemtn('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     args = parser.parse_args()
 
     world_size = torch.cuda.device_count()
 
-    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation), nprocs=world_size)
+    mp.spawn(main, args=(world_size, args.save_every, args.epochs, args.dataset, args.batch_size, args.architecture, args.activation, args.trials), nprocs=world_size)
 

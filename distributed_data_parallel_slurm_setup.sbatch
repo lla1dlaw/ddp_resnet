@@ -16,6 +16,8 @@
 #SBATCH --cpus-per-task=48
 #SBATCH --time=10:00:00
 #SBATCH --output=./output.log
+#SBATCH --mail-user=liamlaidlaw04@gmail.com
+#SBATCH --mail-type=ALL
 
 # --- Setup In Master ---
 # Master will be the one running this bash script (SLURM runs this only once)
