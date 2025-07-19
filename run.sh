@@ -12,7 +12,7 @@ echo "Waiting for $FILE_TO_WAIT_FOR to be created..."
 # Loop until the file exists or timeout is reached
 start_time=$(date +%s)
 until [ -f "./logs/$FILE_TO_WAIT_FOR" ] || (($(date +%s) - start_time >= TIMEOUT_SECONDS)); do
-  sleep 1 # Check every second
+  sleep 0.25 # Check every second
 done
 
 if [ -f "./logs/$FILE_TO_WAIT_FOR" ]; then

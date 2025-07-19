@@ -26,6 +26,6 @@ export MASTER_PORT=12355 # A static port is fine for single-node jobs
 
 torchrun \
   --standalone \
-  --nproc_per_node=$SLURM_GPUS_PER_NODE \
+  --nproc_per_node=$SLURM_TASKS_PER_NODE \
   --nnodes=$SLURM_NNODES \
   train.py --epochs 2 --batch_size 128
