@@ -26,6 +26,23 @@
 master_addr=$(hostname -i)
 master_port=$(python -c 'import socket; s=socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()')
 
+module purge
+module load mamba
+module load cudnn8.5-cuda11.7/8.5.0.96
+module load gcc/10.2.0
+echo "Modules loaded."
+
+# 2. Activate your Conda environment
+mamba activate FederatedResnet
+echo "Activated Conda environment: $CONDA_DEFAULT_ENV"
+
+# 3. Diagnostic checks
+echo "--- Running Diagnostics ---"
+nvidia-smi
+echo "Python path: $(which python)"
+python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU Count: {torch.cuda.device_count()}')"
+echo "---------------------------"
+
 # --- Call the Script which the User will Edit ---
 # With srun this will be run on all nodes for all processes
 srun --gres=gpu:1 ./distributed_data_parallel_slurm_run.bash --master_addr $master_addr --master_port $master_port
