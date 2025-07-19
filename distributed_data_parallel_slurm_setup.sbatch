@@ -14,7 +14,7 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH --gres=gpu:L40:8
 #SBATCH --cpus-per-task=8
-#SBATCH --time=72:00:00
+#SBATCH --time=36:00:00
 #SBATCH --output=./logs/output.log
 #SBATCH --mail-user=liamlaidlaw04@gmail.com
 #SBATCH --mail-type=ALL
