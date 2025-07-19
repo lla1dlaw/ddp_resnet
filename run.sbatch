@@ -11,7 +11,6 @@
 #SBATCH --mail-type=ALL
 
 module purge
-module load mamba
 module load slurm
 module load cudnn8.5-cuda11.7/8.5.0.96
 module load gcc/10.2.0
