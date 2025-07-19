@@ -117,15 +117,16 @@ class Trainer:
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            TextColumn("Train Acc: {task.fields[train_acc]}"),
-            TextColumn("Val Acc: {task.fields[val_acc]}"),
+            TextColumn(text_format="Train Acc: {task.fields[train_acc]}"),
+            TextColumn(text_format="Val Acc: {task.fields[val_acc]}"),
         ]
 
         progress_context = Progress(*progress_columns) if self.gpu_id == 0 else contextlib.nullcontext()
         with progress_context as progress_bar:
             task=None
             if self.gpu_id == 0:
-                task = progress_bar.add_task(description="Epoch 1 ",train_acc=" - ", val_acc = " - ", total=total_steps)
+                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
+                progress_bar.update(task, train_acc=" - ", val_acc = " - ")
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 val_loss, val_top1, val_top5 = self.validate()
