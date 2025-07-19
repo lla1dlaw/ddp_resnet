@@ -110,6 +110,7 @@ class Trainer:
 
         progress_context = Progress() if self.gpu_id == 0 else contextlib.nullcontext()
         with progress_context as progress_bar:
+            task=None
             if self.gpu_id == 0:
                 task = progress_bar.add_task(description="Epoch 1 ", total=total_steps)
             for epoch in range(max_epochs):
