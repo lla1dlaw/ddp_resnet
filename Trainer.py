@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torchmetrics.classification import MulticlassAccuracy
-from rich.progress import Progress
+from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TaskProgressColumn # <--- ADD THIS
 import wandb
 import contextlib
 
@@ -111,8 +111,17 @@ class Trainer:
                 },
             )
         total_steps = max_epochs * len(self.train_data)
+        
+        progress_columns = [
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            TextColumn("Train Acc: {task.fields[train_acc]}"),
+            TextColumn("Val Acc: {task.fields[val_acc]}"),
+        ]
 
-        progress_context = Progress() if self.gpu_id == 0 else contextlib.nullcontext()
+        progress_context = Progress(*progress_columns) if self.gpu_id == 0 else contextlib.nullcontext()
         with progress_context as progress_bar:
             task=None
             if self.gpu_id == 0:
