@@ -25,7 +25,7 @@ torchrun \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
   ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type complex
 
-torchrun \
-  --standalone \
-  --nproc_per_node=$SLURM_GPUS_PER_NODE \
-  ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
+#torchrun \
+#  --standalone \
+#  --nproc_per_node=$SLURM_GPUS_PER_NODE \
+#  ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
