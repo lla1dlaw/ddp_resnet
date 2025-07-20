@@ -66,8 +66,6 @@ class Trainer:
             targets = targets.to(self.gpu_id)
             loss, outputs = self._run_batch(inputs, targets, criterion)
             loss_total += loss
-            print(f"Outputs Shape: {outputs.shape}")
-            print(f"Targets Shape: {targets.shape}")
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
             if progress_bar is not None:

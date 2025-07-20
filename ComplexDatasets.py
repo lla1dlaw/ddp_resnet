@@ -10,6 +10,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split 
 from ProgressFile import ProgressFile
+import contextlib
 
 
 class CustomDataset(Dataset):
@@ -71,7 +72,7 @@ def _load_complex_dataset(
     polarization: Optional[str] = None,
     training_split: Optional[Iterable] = [0.8, 0.2],
 ) -> Union[CustomDataset, list[Subset[tuple[Tensor,...]]]]:
-
+    rank = int(os.environ["LOCAL_RANK"])
     validate_args(root_dir, base_dir, polarization, training_split)
 
     HH_data = []
@@ -85,11 +86,12 @@ def _load_complex_dataset(
         HH_path = os.path.join(data_dir, 'HH_Complex_Patches.npy')
         HV_path = os.path.join(data_dir, 'HV_Complex_Patches.npy')
         labels_path = os.path.join(data_dir, 'Labels.npy')
-
-        print(f"\nLoading S1SLC_CVDL {dir}")
-        HH_data.extend(_load_np_from_file(HH_path))
-        HV_data.extend(_load_np_from_file(HV_path))
-        label_data.extend(_load_np_from_file(labels_path))
+        
+        if rank == 0:
+            print(f"\nLoading S1SLC_CVDL {dir}")
+        HH_data.extend(_load_np_from_file(HH_path, rank))
+        HV_data.extend(_load_np_from_file(HV_path, rank))
+        label_data.extend(_load_np_from_file(labels_path, rank))
 
     HH_array = np.array(HH_data)
     HV_array = np.array(HV_data)
@@ -107,7 +109,6 @@ def _load_complex_dataset(
         inputs = np.concatenate((real, imag), axis=1)
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
-    print(f"Classes: {np.unique(labels)}")
     dataset = CustomDataset(
         (inputs, labels),
         transform=transform,
@@ -121,9 +122,12 @@ def _load_complex_dataset(
     return dataset_sections
 
 
-def _load_np_from_file(path: str) -> np.array:
+def _load_np_from_file(path: str, rank: int) -> np.array:
     """ Helper function to load a saved numpy array from a .npy file """
-    with ProgressFile(path, "rb", desc=f'reading {path}') as f:
+
+    progress_context = ProgressFile(path, "rb", desc=f'reading {path}') if rank == 0 else contextlib.nullcontext()
+
+    with progress_context as f:
         array = np.load(f)
         if array.dtype == np.complex128:
             array = array.astype(np.complex64)# decrease size for memory savings
