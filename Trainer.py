@@ -111,6 +111,7 @@ class Trainer:
 
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
+            os.environ["WANDB_SILENT"] = "true"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
                 project="CIFAR10-RealResNet",
