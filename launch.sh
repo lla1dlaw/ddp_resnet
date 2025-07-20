@@ -22,4 +22,4 @@ echo "--- 🚀 Launching training script via torchrun... ---"
 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
-  ../train.py --epochs 200 --batch_size 64 --dataset cifar10 --model-type real
+  ../train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL --model-type real
