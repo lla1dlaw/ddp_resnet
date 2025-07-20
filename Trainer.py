@@ -37,7 +37,6 @@ class Trainer:
         self.model = model
         self.model_name = model.__class__.__name__
         self.results_dir = os.path.join('./results', self.model_name)
-        self.model.set_input(self.num_channels, self.num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
