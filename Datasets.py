@@ -13,7 +13,9 @@ dataset_map = {
 }
 
 def get_dataset(dataset_name: str):
-    print(f"Begining Load Process for {dataset_name}")
+    rank = int(os.environ["LOCAL_RANK"])
+    if rank == 0:
+        print(f"Begining Load Process for {dataset_name}")
     if dataset_name in ['cifar10', 'cifar100', 'mnist']:
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -31,7 +33,8 @@ def get_dataset(dataset_name: str):
     elif dataset_name == "S1SLC_CVDL":
         transform = None # define complex transform here
         trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization='HH', dtype='real', split=[0.8, 0.2], transform=transform)
-    print(f"{dataset_name.upper()} datasets loaded successfully.")
+    if rank == 0:
+        print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
 
 
