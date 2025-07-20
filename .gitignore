@@ -1,4 +1,4 @@
 .env
-./__pycache__/*
-./data/*
-./modles/__pycache__/*
+/__pycache__/
+/data/
+/models/__pycache__/
