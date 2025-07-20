@@ -18,13 +18,14 @@ echo "Activated Conda environment: $CONDA_DEFAULT_ENV"
 
 # 3. Launch the training script with torchrun
 # torchrun will spawn a process for each GPU and set LOCAL_RANK correctly.
-echo "--- 🚀 Launching training script via torchrun... ---"
-torchrun \
-  --standalone \
-  --nproc_per_node=$SLURM_GPUS_PER_NODE \
-  ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
+echo "--- Launching training script via torchrun ---"
 
 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
   ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type complex
+
+torchrun \
+  --standalone \
+  --nproc_per_node=$SLURM_GPUS_PER_NODE \
+  ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
