@@ -41,6 +41,10 @@ class Trainer:
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
+        
+        if self.gpu_id == 0:
+            print(f"Changed num_channels to: {self.num_channels}")
+            print(f"Changed num_classes to: {self.num_classes}")
 
 
     def _run_batch(self, inputs, targets, criterion):
