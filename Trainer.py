@@ -45,6 +45,7 @@ class Trainer:
         if self.gpu_id == 0:
             print(f"Changed num_channels to: {self.num_channels}")
             print(f"Changed num_classes to: {self.num_classes}")
+            print(f"Sample Target: {torch.unique(sample_target)}")
 
 
     def _run_batch(self, inputs, targets, criterion):
