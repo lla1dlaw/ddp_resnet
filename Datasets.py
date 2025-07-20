@@ -14,7 +14,7 @@ dataset_map = {
     'S1SLC_CVDL': S1SLC_CVDL,
 }
 
-def get_dataset(dataset_name: str, polarization):
+def get_dataset(dataset_name: str, polarization, model_type: str):
     rank = int(os.environ["LOCAL_RANK"])
     if rank == 0:
         print(f"Begining Load Process for {dataset_name}")
@@ -34,14 +34,14 @@ def get_dataset(dataset_name: str, polarization):
         testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
     elif dataset_name == "S1SLC_CVDL":
         transform = None # define complex transform here
-        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization=polarization, dtype='real', split=[0.8, 0.2], transform=transform)
+        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization=polarization, dtype=model_type, split=[0.8, 0.2], transform=transform)
     if rank == 0:
         print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
 
 
-def get_dataloaders(dataset_name: str, polarization, batch_size: int) -> tuple[DataLoader, DataLoader]:
-    train_set, test_set = get_dataset(dataset_name, polarization)
+def get_dataloaders(dataset_name: str, polarization, batch_size: int, model_type: str) -> tuple[DataLoader, DataLoader]:
+    train_set, test_set = get_dataset(dataset_name, polarization, model_type)
 
     train_loader = DataLoader(
         train_set,

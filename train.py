@@ -19,12 +19,6 @@ def ddp_setup():
     init_process_group(backend="nccl")
     torch.cuda.set_device(rank)
 
-
-def load_train_objs(dataset_name: str, polarization, batch_size: int):
-    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size)  
-    return train_loader, test_loader
-
-
 def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int):
     ddp_setup()
     polarization = None
@@ -43,7 +37,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             print(f"- Loading Dataset {dataset_name.upper()}...")
         else:
             print(F"- Loading Dataset {dataset.upper()}...")
-    train_loader, test_loader = load_train_objs(dataset, polarization, batch_size)
+    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size, model_type) 
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
