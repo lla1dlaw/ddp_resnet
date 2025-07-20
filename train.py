@@ -37,7 +37,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             print(f"- Loading Dataset {dataset_name.upper()}...")
         else:
             print(F"- Loading Dataset {dataset.upper()}...")
-    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size, model_type) 
+    train_loader, test_loader = get_dataloaders(dataset, polarization, batch_size, model_type) 
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
