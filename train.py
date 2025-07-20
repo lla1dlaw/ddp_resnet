@@ -31,7 +31,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     dataset = None
 
     if 'S1SLC_CVDL' in dataset_name and len(dataset_name.split('_')) > 2:
-        dataset = dataset_name.split('_')[0:2]
+        dataset = "_".join(dataset_name.split('_')[0:2])
         polarization = dataset_name.split('_')[-1]
 
 
