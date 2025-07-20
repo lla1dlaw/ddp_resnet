@@ -61,5 +61,11 @@ def get_dataloaders(dataset_name: str, polarization, batch_size: int) -> tuple[D
         num_workers=4,
     )
 
+    rank = int(os.environ["LOCAL_RANK"])
+    if rank == 0:
+        image, label = next(iter(train_loader))
+        print(f"Sample Train Input Batch Shape: {image.size()}")
+        print(f"Sample Train Batch Labels Shape: {label.size()}")
+
     return train_loader, test_loader
 
