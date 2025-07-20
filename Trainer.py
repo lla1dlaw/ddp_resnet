@@ -74,8 +74,6 @@ class Trainer:
             inputs = inputs.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
             loss, outputs = self._run_batch(inputs, targets, criterion)
-            print(f"Outputs Shape: {outputs.shape}")
-            print(f"Targets Shape: {targets.shape}")
             loss_total += loss
             top1_acc.update(outputs, targets)
             top5_acc.update(outputs, targets)
