@@ -51,10 +51,12 @@ class Trainer:
         self.optimizer.step()
         return loss.item(), outputs
 
+
     def _run_val_batch(self, inputs, targets, criterion):
         outputs = self.model(inputs)
         loss = criterion(outputs, targets)
         return loss.item(), outputs
+
 
     def _run_epoch(self, epoch, progress_bar, task_id):
         loss_total = 0
@@ -84,6 +86,7 @@ class Trainer:
         epoch_loss = loss_total / len(self.train_data)
         return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item(), epoch_duration_seconds
 
+
     def validate(self):
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
         top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
@@ -106,21 +109,22 @@ class Trainer:
 
 
     def _save_checkpoint(self, epoch):
-        save_path = os.path.join(self.results_dir, self.model_name, "checkpoints", f'trial_{self.trial}')
+        save_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}')
         os.makedirs(save_path, exist_ok=True)
         file_path = os.path.join(save_path, f"epoch_{epoch}_checkpoint.pt")
 
         ckp = self.model.module.state_dict()
         torch.save(ckp, file_path)
 
+
     def _save_dataframe(self, dataframe: pd.DataFrame):
-        save_path = os.path.join(self.results_dir, self.model_name, "trial_data")
+        save_path = os.path.join(self.results_dir, "trial_data")
         os.makedirs(save_path, exist_ok=True)
         file_path = os.path.join(save_path, f"trial_{self.trial}.csv")
 
         write_header = not os.path.exists(file_path)
         dataframe.to_csv(file_path, mode='a', header=write_header, index=False)
-        
+
 
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
@@ -197,7 +201,6 @@ class Trainer:
                     final_metrics.update(metrics)
                     metrics_df = pd.DataFrame(final_metrics)
                     self._save_dataframe(metrics_df)
-
 
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
                     self._save_checkpoint(epoch)
