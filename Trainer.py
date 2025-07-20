@@ -42,9 +42,8 @@ class Trainer:
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
         
         if self.gpu_id == 0:
-            print(f"Changed num_channels to: {self.num_channels}")
-            print(f"Changed num_classes to: {self.num_classes}")
-            print(f"Sample Target: {torch.unique(sample_target)}")
+            print(f"\nSample Input Shape: {sample_input.shape}")
+            print(f"Sample Target Shape: {sample_target.shape}\n")
 
 
     def _run_batch(self, inputs, targets, criterion):
