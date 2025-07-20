@@ -134,7 +134,8 @@ def _load_np_from_file(path: str, rank: int) -> np.array:
             array = np.load(path)
         if array.dtype == np.complex128:
             array = array.astype(np.complex64)# decrease size for memory savings
-        f.close()
+        if f is not None:
+            f.close()
     return array
 
 
