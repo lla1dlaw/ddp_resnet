@@ -47,14 +47,17 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
+    image, _ = next(iter(train_loader))
+    num_channels = image.size()[1]
+
     for trial in range(num_trials):
         if rank == 0:
             print(f"\n---- Starting Trial {trial} ----")
             print(f"- Initializing model...")
         if model_type == 'complex':
-            model = ComplexResNet(arch, num_classes=num_classes, activation_function=activation)
+            model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
-            model = RealResNet('IB')
+            model = RealResNet('IB', input_channels=num_channels, num_classes=num_classes)
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")
