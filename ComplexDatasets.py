@@ -107,6 +107,7 @@ def _load_complex_dataset(
         inputs = np.concatenate((real, imag), axis=1)
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
+    print(f"Classes: {np.unique(labels)}")
     dataset = CustomDataset(
         (inputs, labels),
         transform=transform,
