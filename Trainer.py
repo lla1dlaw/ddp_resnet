@@ -162,16 +162,36 @@ class Trainer:
                         train_acc=f"{train_top1:.4f}",
                         val_acc=f"{val_top1:.4f}"
                     )
+
+                    wandb_metrics = {
+                        'Accuracy': {
+                            'Training Accuracy': train_top1,
+                            'Validation Accuracy': val_top1,
+                        },
+                        'Loss': {
+                            'Training Loss': epoch_loss,
+                            'Validation Loss': val_loss,
+                        },
+                        'Top 5 Accuracy': {
+                            'Training Top 5 Acc': train_top5,
+                            'Validation Top 5 Acc': val_top5,
+                        }
+                    }
+
+                    run.log(wandb_metrics)
+
                     metrics = {
-                        "train loss": [epoch_loss],
-                        "train acc": [train_top1],
-                        "train top5 acc": [train_top5],
-                        "val loss": [val_loss],
-                        "val acc": [val_top1],
-                        "val top5 acc": [val_top5],
-                        "epoch_duration_sec": [epoch_duration],
+                        "train loss": epoch_loss,
+                        "train acc": train_top1,
+                        "train top5 acc": train_top5,
+                        "val loss": val_loss,
+                        "val acc": val_top1,
+                        "val top5 acc": val_top5,
+                        "epoch_duration_sec": epoch_duration,
                     } 
-                    run.log(metrics)
+
+                    for name, metric in metrics.items():
+                        metrics[name] = [metric]
 
                     final_metrics = {"epoch": [epoch+1]}
                     final_metrics.update(metrics)
