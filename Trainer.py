@@ -25,15 +25,14 @@ class Trainer:
         self.validation_data = validation_data
         self.optimizer = optimizer
         self.save_every = save_every
-        self.num_classes = model.num_classes
         self.trial = trial
 
         # set the inputsize and num_channels for more robust training on any dataset
         sample_input, sample_target = next(iter(train_data))
-        num_channels = sample_input.shape[1]
-        num_classes = len(torch.unique(sample_target))
+        self.num_channels = sample_input.shape[1]
+        self.num_classes = len(torch.unique(sample_target))
         self.model = model
-        self.model.set_input(num_channels, num_classes)
+        self.model.set_input(self.num_channels, self.num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         print(f"Initializing model on rank: {self.gpu_id}")
         self.model = self.model.to(self.gpu_id)
