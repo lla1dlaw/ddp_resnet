@@ -32,10 +32,11 @@ class Trainer:
         sample_input, sample_target = next(iter(train_data))
         num_channels = sample_input.shape[1]
         num_classes = len(torch.unique(sample_target))
+        self.model = model
         self.model.set_input(num_channels, num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
-        self.model = model.to(self.gpu_id)
-        self.model = DDP(model,  device_ids=[self.gpu_id])
+        self.model = self.model.to(self.gpu_id)
+        self.model = DDP(self.model,  device_ids=[self.gpu_id])
 
 
     def _run_batch(self, inputs, targets, criterion):
