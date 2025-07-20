@@ -104,6 +104,7 @@ class RealResNet(nn.Module):
 
 
     def set_input(self, input_channels: int, num_classes:int):
+        self.num_classes = num_classes
         self.initial_op = nn.Sequential(
             nn.Conv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(self.initial_filters),

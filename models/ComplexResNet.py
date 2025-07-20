@@ -408,6 +408,7 @@ class ComplexResNet(nn.Module):
 
 
     def set_input(self, input_channels: int, num_classes:int):
+        self.num_classes = num_classes
         self.initial_op = nn.Sequential(
             nn.ComplexConv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
             nn.ComplexBatchNorm2d(self.initial_filters),
