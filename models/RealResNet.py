@@ -97,10 +97,21 @@ class RealResNet(nn.Module):
             if i < len(self.blocks_per_stage) - 1:
                 self.downsample_layers.append(nn.Conv2d(current_channels, current_channels, kernel_size=1, stride=1, bias=False))
             current_channels *= 2
-        final_channels = self.initial_filters * (2**(len(self.blocks_per_stage) - 1))
+        self.final_channels = self.initial_filters * (2**(len(self.blocks_per_stage) - 1))
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(final_channels, num_classes)
+        self.fc = nn.Linear(self.final_channels, num_classes)
         self.apply(init_weights)
+
+
+    def set_input(self, input_channels: int, num_classes:int):
+        self.initial_op = nn.Sequential(
+            nn.Conv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(self.initial_filters),
+            nn.ReLU(inplace=False)
+        )
+
+        self.fc = nn.Linear(self.final_channels, num_classes)
+
 
     def forward(self, x):
         x = self.initial_op(x)

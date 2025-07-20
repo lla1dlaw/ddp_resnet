@@ -9,7 +9,6 @@ from s3torchconnector import S3MapDataset
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split 
-import torchvision.transforms as transform
 from ProgressFile import ProgressFile
 
 
@@ -41,31 +40,32 @@ class CustomDataset(Dataset):
 
 def S1SLC_CVDL( # Call this method only.
         root: Union[str, Path],
+        polarization: str,
+        dtype: str,
         split: Optional[Iterable] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
-        polarization: str = 'HH',
         use_s3: bool = False, 
 ) -> Union[S3MapDataset, CustomDataset, list[Subset[tuple[Tensor,...]]]]:
-
-    """ Made for arbitrary usage as a replacement for PyTorch Datasets """
 
     if use_s3:
         return _get_S3_stream(transform)
     else: 
         base_dir = "mini_S1SLC_CVDL"
-        return _load_saved_dataset(
+        return _load_complex_dataset(
             root_dir=root,
             base_dir=base_dir,
+            dtype=dtype,
             training_split=split,
             transform=transform,
             target_transform=target_transform,
             polarization=polarization,
         )
 
-def _load_saved_dataset(
+def _load_complex_dataset(
     root_dir: str,
     base_dir:str,
+    dtype: str,
     transform: Optional[Callable],
     target_transform: Optional[Callable],
     polarization: Optional[str] = None,
@@ -98,8 +98,13 @@ def _load_saved_dataset(
         inputs = np.expand_dims(HH_array, axis=1)
     elif polarization == 'HV':
         inputs = np.expand_dims(HV_array, axis=1)
-    elif polarization is None: # treats each set of data as a separate channel 
+    elif polarization == 'both': # treats each set of data as a separate channel 
         inputs = np.stack((HH_array, HV_array), axis=1) 
+
+    if dtype == 'real': # stacks real and imaginary components together and doubles channels as a result
+        real = inputs.real
+        imag = inputs.imag
+        inputs = np.concatenate((real, imag), axis=1)
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
     dataset = CustomDataset(
@@ -120,7 +125,7 @@ def _load_np_from_file(path: str) -> np.array:
     with ProgressFile(path, "rb", desc=f'reading {path}') as f:
         array = np.load(f)
         if array.dtype == np.complex128:
-            array = array.astype(np.complex64)# decrease size to increase training speed 
+            array = array.astype(np.complex64)# decrease size for memory savings
         f.close()
     return array
 
@@ -224,7 +229,6 @@ def make_mini_dataset(
     save_arrays(path="./data/mini_S1SLC_CVDL/", **paths_and_arrays)
 
 
-
 def validate_args(
     root_dir: str,
     base_dir:str,
@@ -259,9 +263,3 @@ def _get_S3_stream(transform: Optional[Callable] = None) -> S3MapDataset:
         print("Or remove 'download = True' argument from S1SLC_CVDL call to attempt local loading.")
         exit()
 
-
-if __name__ == "__main__":
-    train, val, test = S1SLC_CVDL("./data", split=[0.7, 0.2, 0.1])
-    print(f"\nTraining Data Shape: {train[0].shape}")
-    print(f"Validation Data Shape: {val[0].shape}")
-    print(f"Test Data Shape: {test[0].shape}")

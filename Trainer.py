@@ -31,6 +31,13 @@ class Trainer:
         self.model = DDP(model,  device_ids=[self.gpu_id])
         self.trial = trial
 
+        # set the inputsize and num_channels for more robust training on any dataset
+        sample_input, sample_target = next(iter(train_data))
+        num_channels = sample_input.shape[1]
+        num_classes = len(torch.unique(sample_target))
+        self.model.set_input(num_channels, num_classes)
+
+
     def _run_batch(self, inputs, targets, criterion):
         self.optimizer.zero_grad()
         outputs = self.model(inputs)

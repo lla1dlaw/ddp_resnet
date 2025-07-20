@@ -28,13 +28,11 @@ def get_dataset(dataset_name: str):
 
         trainset = dataset_map[dataset_name.lower()](root='./data', train=True, download=True, transform=transform_train)
         testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
-    elif dataset_name == 'S1SLC_CVDL':
-        transform = None
-        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', split=[0.8, 0.2], transform=transform, polarization='HH')
-
+    elif dataset_name == "S1SLC_CVDL":
+        transform = None # define complex transform here
+        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization='HH', dtype='real', split=[0.8, 0.2], transform=transform)
     print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
-
 
 
 def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, DataLoader]:
