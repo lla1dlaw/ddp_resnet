@@ -36,6 +36,7 @@ class Trainer:
         self.num_classes = len(torch.unique(sample_target))
         self.model = model
         self.model_name = model.__class__.__name__
+        self.results_dir = os.path.join('./results', self.model_name)
         self.model.set_input(self.num_channels, self.num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
@@ -105,12 +106,15 @@ class Trainer:
 
 
     def _save_checkpoint(self, epoch):
-        ckp = self.model.module.state_dict()
-        PATH = f"epoch_{epoch}_checkpoint.pt"
-        torch.save(ckp, PATH)
+        save_path = os.path.join(self.results_dir, self.model_name, "checkpoints", f'trial_{self.trial}')
+        os.makedirs(save_path, exist_ok=True)
+        file_path = os.path.join(save_path, f"epoch_{epoch}_checkpoint.pt")
 
-    def _save_dataframe(self, dataframe: pd.DataFrame, path: str):
-        save_path = os.path.join(path, self.model_name)
+        ckp = self.model.module.state_dict()
+        torch.save(ckp, file_path)
+
+    def _save_dataframe(self, dataframe: pd.DataFrame):
+        save_path = os.path.join(self.results_dir, self.model_name, "trial_data")
         os.makedirs(save_path, exist_ok=True)
         file_path = os.path.join(save_path, f"trial_{self.trial}.csv")
 
@@ -172,7 +176,7 @@ class Trainer:
                     final_metrics = {"epoch": epoch}
                     final_metrics.update(metrics)
                     metrics_df = pd.DataFrame(final_metrics)
-                    self._save_dataframe(metrics_df, './results')
+                    self._save_dataframe(metrics_df)
 
 
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
