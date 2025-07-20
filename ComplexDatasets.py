@@ -128,7 +128,10 @@ def _load_np_from_file(path: str, rank: int) -> np.array:
     progress_context = ProgressFile(path, "rb", desc=f'reading {path}') if rank == 0 else contextlib.nullcontext()
 
     with progress_context as f:
-        array = np.load(f)
+        if f is not None:
+            array = np.load(f)
+        else:
+            array = np.load(path)
         if array.dtype == np.complex128:
             array = array.astype(np.complex64)# decrease size for memory savings
         f.close()
