@@ -100,7 +100,7 @@ def _load_complex_dataset(
         inputs = np.expand_dims(HH_array, axis=1)
     elif polarization == 'HV':
         inputs = np.expand_dims(HV_array, axis=1)
-    elif polarization == 'both': # treats each set of data as a separate channel 
+    elif polarization is None: # treats each set of data as a separate channel 
         inputs = np.stack((HH_array, HV_array), axis=1) 
 
     if dtype == 'real': # stacks real and imaginary components together and doubles channels as a result

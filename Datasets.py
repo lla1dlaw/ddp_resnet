@@ -1,4 +1,5 @@
 import os
+from torch import polar
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 from torch.utils.data import  DataLoader
 import torchvision.transforms as transforms
@@ -13,7 +14,7 @@ dataset_map = {
     'S1SLC_CVDL': S1SLC_CVDL,
 }
 
-def get_dataset(dataset_name: str):
+def get_dataset(dataset_name: str, polarization):
     rank = int(os.environ["LOCAL_RANK"])
     if rank == 0:
         print(f"Begining Load Process for {dataset_name}")
@@ -33,14 +34,14 @@ def get_dataset(dataset_name: str):
         testset = dataset_map[dataset_name.lower()](root='./data', train=False, download=True, transform=transform_test)
     elif dataset_name == "S1SLC_CVDL":
         transform = None # define complex transform here
-        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization='HH', dtype='real', split=[0.8, 0.2], transform=transform)
+        trainset, testset = dataset_map['S1SLC_CVDL'](root='./data', polarization=polarization, dtype='real', split=[0.8, 0.2], transform=transform)
     if rank == 0:
         print(f"{dataset_name.upper()} datasets loaded successfully.")
     return trainset, testset
 
 
-def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, DataLoader]:
-    train_set, test_set = get_dataset(dataset_name)
+def get_dataloaders(dataset_name: str, polarization, batch_size: int) -> tuple[DataLoader, DataLoader]:
+    train_set, test_set = get_dataset(dataset_name, polarization)
 
     train_loader = DataLoader(
         train_set,
@@ -62,13 +63,3 @@ def get_dataloaders(dataset_name: str, batch_size: int) -> tuple[DataLoader, Dat
 
     return train_loader, test_loader
 
-
-if __name__ == "__main__":
-    start_time = datetime.now()
-
-    get_dataset('S1SLC_CVDL')
-    
-    end_time = datetime.datetime.now()
-    time_difference = end_time - start_time
-    execution_time_minutes = time_difference.total_seconds() / 60
-    print(f"Loading data took: {execution_time_minutes:.2f} minutes.")

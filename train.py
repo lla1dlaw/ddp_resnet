@@ -18,19 +18,30 @@ def ddp_setup():
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 
-def load_train_objs(dataset_name: str, batch_size: int):
-    train_loader, test_loader = get_dataloaders(dataset_name, batch_size)  
+def load_train_objs(dataset_name: str, polarization, batch_size: int):
+    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size)  
     return train_loader, test_loader
 
 
 def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int):
     ddp_setup()
+    polarization = None
+    dataset = None
+
+    if 'S1SLC_CVDL' in dataset_name and len(dataset_name.split('_')) > 2:
+        dataset = dataset_name.split('_')[0:2]
+        polarization = dataset_name.split('_')[-1]
+
+
     base_lr = 0.01
     lr = base_lr * torch.cuda.device_count()
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
-        print(f"- Loading Dataset {dataset_name.upper()}...")
-    train_loader, test_loader = load_train_objs(dataset_name, batch_size)
+        if dataset is None:
+            print(f"- Loading Dataset {dataset_name.upper()}...")
+        else:
+            print(F"- Loading Dataset {dataset.uper()}...")
+    train_loader, test_loader = load_train_objs(dataset, polarization, batch_size)
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
@@ -45,7 +56,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")
-        trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial)
+        trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial, polarization)
         trainer.train(total_epochs)
 
     print(f"- Rank {rank} training complete.")
@@ -60,7 +71,7 @@ if __name__ == "__main__":
                         help="Activation function for ComplexResNet.")
     parser.add_argument('--epochs', type=int, default=5, help='Total epochs to train the model')
     parser.add_argument('--save_every', type=int, default=math.inf, help='How often to save a snapshot')
-    parser.add_argument('--dataset', type=str, default='S1SLC_CVDL', help='Dataset to use for trainng.')
+    parser.add_argument('--dataset', type=str, default='S1SLC_CVDL_HH', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     parser.add_argument('--model-type', type=str, default='complex', choices=['complex', 'real'])

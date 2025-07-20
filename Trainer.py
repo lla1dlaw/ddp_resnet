@@ -20,13 +20,15 @@ class Trainer:
         validation_data: DataLoader,
         optimizer: torch.optim.Optimizer,
         save_every: int,
-        trial:int,
+        trial: int,
+        polarization: str,
     ) -> None:
         self.train_data = train_data
         self.validation_data = validation_data
         self.optimizer = optimizer
         self.save_every = save_every
         self.trial = trial
+        self.polarization = polarization
 
         # set the inputsize and num_channels for more robust training on any dataset
         sample_input, sample_target = next(iter(train_data))
