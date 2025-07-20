@@ -9,6 +9,7 @@ from torchmetrics.classification import MulticlassAccuracy
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TaskProgressColumn # <--- ADD THIS
 import wandb
 import contextlib
+import pandas as pd
 
 
 class Trainer:
@@ -32,6 +33,7 @@ class Trainer:
         self.num_channels = sample_input.shape[1]
         self.num_classes = len(torch.unique(sample_target))
         self.model = model
+        self.model_name = model.__class__.__name__
         self.model.set_input(self.num_channels, self.num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
@@ -105,6 +107,15 @@ class Trainer:
         PATH = f"epoch_{epoch}_checkpoint.pt"
         torch.save(ckp, PATH)
 
+    def _save_dataframe(self, dataframe: pd.DataFrame, path: str):
+        save_path = os.path.join(path, self.model_name)
+        os.makedirs(save_path, exist_ok=True)
+        file_path = os.path.join(save_path, f"trial_{self.trial}.csv")
+
+        write_header = not os.path.exists(file_path)
+        dataframe.to_csv(file_path, mode='a', header=write_header, index=False)
+        
+
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
@@ -145,7 +156,7 @@ class Trainer:
                         train_acc=f"{train_top1:.4f}",
                         val_acc=f"{val_top1:.4f}"
                     )
-                    run.log({
+                    metrics = {
                         "train loss": epoch_loss,
                         "train acc": train_top1,
                         "train top5 acc": train_top5,
@@ -153,7 +164,15 @@ class Trainer:
                         "val acc": val_top1,
                         "val top5 acc": val_top5,
                         "epoch_duration_sec": epoch_duration,
-                    })
+                    } 
+                    run.log(metrics)
+
+                    final_metrics = {"epoch": epoch}
+                    final_metrics.update(metrics)
+                    metrics_df = pd.DataFrame(final_metrics)
+                    self._save_dataframe(metrics_df, './results')
+
+
                 if self.gpu_id == 0 and epoch % self.save_every == 0:
                     self._save_checkpoint(epoch)
         if self.gpu_id == 0:
