@@ -35,6 +35,7 @@ class Trainer:
         self.model = model
         self.model.set_input(num_channels, num_classes)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
+        print(f"Initializing model on rank: {self.gpu_id}")
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
 
