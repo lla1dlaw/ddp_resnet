@@ -163,17 +163,17 @@ class Trainer:
                         val_acc=f"{val_top1:.4f}"
                     )
                     metrics = {
-                        "train loss": epoch_loss,
-                        "train acc": train_top1,
-                        "train top5 acc": train_top5,
-                        "val loss": val_loss,
-                        "val acc": val_top1,
-                        "val top5 acc": val_top5,
-                        "epoch_duration_sec": epoch_duration,
+                        "train loss": [epoch_loss],
+                        "train acc": [train_top1],
+                        "train top5 acc": [train_top5],
+                        "val loss": [val_loss],
+                        "val acc": [val_top1],
+                        "val top5 acc": [val_top5],
+                        "epoch_duration_sec": [epoch_duration],
                     } 
                     run.log(metrics)
 
-                    final_metrics = {"epoch": epoch}
+                    final_metrics = {"epoch": [epoch+1]}
                     final_metrics.update(metrics)
                     metrics_df = pd.DataFrame(final_metrics)
                     self._save_dataframe(metrics_df)
