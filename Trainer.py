@@ -39,7 +39,7 @@ class Trainer:
         self.results_dir = os.path.join('./results', self.model_name)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
-        self.model = torch.compile(DDP(self.model,  device_ids=[self.gpu_id]))
+        self.model = DDP(self.model,  device_ids=[self.gpu_id])
         
         if self.gpu_id == 0:
             print(f"\nSample Input Shape: {sample_input.shape}")
