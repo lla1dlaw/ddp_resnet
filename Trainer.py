@@ -13,6 +13,7 @@ from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, 
 import wandb
 import contextlib
 import pandas as pd
+import torch.functional as F
 
 
 class Trainer:
@@ -83,9 +84,10 @@ class Trainer:
             inputs = inputs.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
             loss, outputs = self._run_batch(inputs, targets, criterion)
+            probs = F.softmax(outputs)
             loss_total += loss
-            top1_acc.update(outputs, targets)
-            top5_acc.update(outputs, targets)
+            top1_acc.update(probs, targets)
+            top5_acc.update(probs, targets)
             if progress_bar is not None:
                 progress_bar.update(
                     task_id,
@@ -99,7 +101,7 @@ class Trainer:
         return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item(), epoch_duration_seconds
 
 
-    def validate(self):
+    def _validate(self):
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
         top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
         total_loss = 0
@@ -112,8 +114,9 @@ class Trainer:
                 inputs = inputs.to(self.gpu_id)
                 targets = targets.to(self.gpu_id)
                 loss, outputs = self._run_val_batch(inputs, targets, criterion)
-                top1_acc.update(outputs, targets)
-                top5_acc.update(outputs, targets)
+                probs = F.softmax(outputs)
+                top1_acc.update(probs, targets)
+                top5_acc.update(probs, targets)
                 total_loss += loss
 
         epoch_loss = total_loss / len(self.validation_data)
@@ -194,7 +197,7 @@ class Trainer:
                 task = progress_bar.add_task(description="Epoch 1 ", total=total_steps, train_acc=" - ", val_acc=" - ", train_loss=" - ", val_loss=" - ")
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
-                val_loss, val_top1, val_top5 = self.validate()
+                val_loss, val_top1, val_top5 = self._validate()
                 if self.gpu_id == 0:
                     progress_bar.update(
                         task,
