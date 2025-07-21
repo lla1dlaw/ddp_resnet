@@ -28,16 +28,17 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         dataset = "_".join(dataset_name.split('_')[0:2])
         polarization = dataset_name.split('_')[-1]
 
+    dataset_name = dataset if dataset is not None else dataset_name
+
 
     base_lr = 0.01
     lr = base_lr * torch.cuda.device_count()
+
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
-        if dataset is None:
-            print(f"- Loading Dataset {dataset_name.upper()}...")
-        else:
-            print(F"- Loading Dataset {dataset.upper()}...")
-    train_loader, test_loader = get_dataloaders(dataset, polarization, batch_size, model_type) 
+        print(f"- Loading Dataset {dataset_name.upper()}...")
+
+    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size, model_type) 
     labels = [label for _, label in train_loader.dataset]
     num_classes = len(torch.tensor(labels).unique())
 
@@ -55,7 +56,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")
-        trainer = Trainer(model, train_loader, test_loader, optimizer, save_every, trial, polarization)
+        trainer = Trainer(model, dataset_name, train_loader, test_loader, optimizer, save_every, trial, polarization)
         trainer.train(total_epochs)
 
     print(f"- Rank {rank} training complete.")

@@ -16,6 +16,7 @@ class Trainer:
     def __init__(
         self,
         model: torch.nn.Module,
+        dataset_name: str,
         train_data: DataLoader,
         validation_data: DataLoader,
         optimizer: torch.optim.Optimizer,
@@ -23,6 +24,7 @@ class Trainer:
         trial: int,
         polarization: str,
     ) -> None:
+        self.dataset_name = dataset_name
         self.train_data = train_data
         self.validation_data = validation_data
         self.optimizer = optimizer
@@ -134,7 +136,7 @@ class Trainer:
             os.environ["WANDB_SILENT"] = "true"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
-                project="CIFAR10-RealResNet",
+                project=f"{self.model_name}-{self.dataset_name}",
                 name=f"Trial_{self.trial}_{datetime.now()}",
                 config={
                     "architecture": "ComplexResNet",
