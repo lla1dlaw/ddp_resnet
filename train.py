@@ -32,7 +32,8 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
 
 
     base_lr = 0.001
-    lr = base_lr * torch.cuda.device_count()
+    #lr = base_lr * torch.cuda.device_count()
+    lr = base_lr
 
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
