@@ -377,7 +377,7 @@ class ComplexBatchNorm2d(nn.Module):
                 f'track_running_stats={self.track_running_stats})')
 
 class ComplexResNet(nn.Module):
-    def __init__(self, architecture_type, activation_function, input_channels=1, num_classes=7):
+    def __init__(self, architecture_type: str, activation_function: str, input_channels: int, num_classes: int):
         super(ComplexResNet, self).__init__()
         self.num_classes = num_classes
         self.input_channels = input_channels

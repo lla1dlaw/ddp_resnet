@@ -64,7 +64,7 @@ class RealResidualBlock(nn.Module):
 
 
 class RealResNet(nn.Module):
-    def __init__(self, architecture_type: str, input_channels:int=3, num_classes:int=10):
+    def __init__(self, architecture_type: str, input_channels: int, num_classes: int):
         """Real-Valued Convolutional Residual Network.
 
         RVCNN Based on the network presented in "Deep Complex Networks", Trabelsi et al. 2018.
