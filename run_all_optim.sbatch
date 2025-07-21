@@ -10,4 +10,4 @@
 #SBATCH --mail-type=ALL
 
 # Execute the main optimized launch script for 4 GPUs
-./launch_optimized_4gpu.sh
+./launch_all.sh
