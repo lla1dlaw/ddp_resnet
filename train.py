@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument('-act', '--activation', metavar='ACT', type=str, default='complex_cardioid', choices=['crelu', 'zrelu', 'modrelu', 'complex_cardioid'],
                         help="Activation function for ComplexResNet.")
     parser.add_argument('--epochs', type=int, default=5, help='Total epochs to train the model')
-    parser.add_argument('--save_every', type=int, default=math.inf, help='How often to save a snapshot')
+    parser.add_argument('--save_every', type=int, default=20, help='How often to save a snapshot')
     parser.add_argument('--dataset', type=str, default='S1SLC_CVDL_HH', help='Dataset to use for trainng.')
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
