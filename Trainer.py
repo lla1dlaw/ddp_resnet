@@ -84,7 +84,7 @@ class Trainer:
             inputs = inputs.to(self.gpu_id)
             targets = targets.to(self.gpu_id)
             loss, outputs = self._run_batch(inputs, targets, criterion)
-            probs = F.softmax(outputs)
+            probs = F.softmax(outputs, dim=1)
             loss_total += loss
             top1_acc.update(probs, targets)
             top5_acc.update(probs, targets)
@@ -114,7 +114,7 @@ class Trainer:
                 inputs = inputs.to(self.gpu_id)
                 targets = targets.to(self.gpu_id)
                 loss, outputs = self._run_val_batch(inputs, targets, criterion)
-                probs = F.softmax(outputs)
+                probs = F.softmax(outputs, dim=1)
                 top1_acc.update(probs, targets)
                 top5_acc.update(probs, targets)
                 total_loss += loss
