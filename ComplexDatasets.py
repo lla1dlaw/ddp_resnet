@@ -9,6 +9,7 @@ from s3torchconnector import S3MapDataset
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split 
+import torchvision.transforms as transforms
 from ProgressFile import ProgressFile
 import contextlib
 
@@ -112,18 +113,53 @@ def _load_complex_dataset(
         inputs = np.concatenate((real, imag), axis=1)
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
-    dataset = CustomDataset(
-        (inputs, labels),
-        transform=transform,
-        target_transform=target_transform,
-    )
 
     if training_split is None:
+        dataset = CustomDataset(
+            (inputs, labels),
+            transform=transform,
+            target_transform=target_transform,
+        )
         return dataset
 
-    dataset_sections = random_split(dataset, training_split)
-    return dataset_sections
 
+    shuffle_arrays(inputs, labels)
+    split_indexes = [int(len(inputs) * split) for split in training_split[:-1]]
+
+    datasets = []
+    input_split = np.split(inputs, split_indexes)
+    labels_split = np.split(labels, split_indexes)
+
+    for input_data, label_data in zip(input_split, labels_split):
+        assert len(input_data) == len(label_data)  # ensure that labels and inputs are the same size
+        mean = np.mean(input_data, axis=(0, 2, 3))
+        std = np.std(input_data, axis=(0, 2, 3))
+        custom_transform = transforms.Compose([
+            transforms.Normalize((mean), (std)) # fix this if necessary
+        ])
+        datasets.append(
+            CustomDataset(
+                (input_data, label_data),
+                transform = custom_transform,
+            )
+        )
+
+    return datasets
+
+def shuffle_arrays(arrays, set_seed=-1):
+    """Shuffles arrays in-place, in the same order, along axis=0
+
+    Parameters:
+    -----------
+    arrays : List of NumPy arrays.
+    set_seed : Seed value if int >= 0, else seed is random.
+    """
+    assert all(len(arr) == len(arrays[0]) for arr in arrays)
+    seed = np.random.randint(0, 2**(32 - 1) - 1) if set_seed < 0 else set_seed
+
+    for arr in arrays:
+        rstate = np.random.RandomState(seed)
+        rstate.shuffle(arr)
 
 def _load_np_from_file(path: str, rank: int) -> np.array:
     """ Helper function to load a saved numpy array from a .npy file """
