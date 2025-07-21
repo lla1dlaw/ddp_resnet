@@ -38,7 +38,7 @@ class Trainer:
         # set the inputsize and num_channels for more robust training on any dataset
         sample_input, sample_target = next(iter(train_data))
         self.num_channels = sample_input.shape[1]
-        self.num_classes = len(torch.unique(sample_target))
+        self.num_classes = model.num_classes
         self.model = model
         self.model_name = model.__class__.__name__
         self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
