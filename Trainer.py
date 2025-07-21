@@ -13,7 +13,7 @@ from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, 
 import wandb
 import contextlib
 import pandas as pd
-import torch.functional as F
+import torch.nn.functional as F
 
 
 class Trainer:
