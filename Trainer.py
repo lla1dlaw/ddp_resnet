@@ -136,6 +136,7 @@ class Trainer:
 
 
     def send_wand_link(self, url: str):
+        load_dotenv()
         email_user = os.getenv("EMAIL_USER")
         email_pass = os.getenv("EMAIL_PASS")
         if not email_user or not email_pass:
