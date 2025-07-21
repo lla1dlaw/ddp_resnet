@@ -134,9 +134,10 @@ class Trainer:
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
+            project_name = f"{self.model_name}-{self.dataset_name}-{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
-                project=f"{self.model_name}-{self.dataset_name}",
+                project=project_name,
                 name=f"Trial_{self.trial}_{datetime.now()}",
                 config={
                     "architecture": "ComplexResNet",
