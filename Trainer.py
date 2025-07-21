@@ -165,7 +165,7 @@ class Trainer:
         with progress_context as progress_bar:
             task=None
             if self.gpu_id == 0:
-                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps, train_acc=" - ", val_acc=" - ")
+                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps, train_acc=" - ", val_acc=" - ", train_loss=" - ", val_loss=" - ")
             for epoch in range(max_epochs):
                 epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 val_loss, val_top1, val_top5 = self.validate()
