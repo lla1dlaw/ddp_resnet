@@ -53,7 +53,8 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
             model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
+        #optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
+        optimizer = torch.optim.ADAM(model.parameters(), lr=lr)
         if rank == 0:
             print(f"- Initializing Trainer...")
         trainer = Trainer(model, dataset_name, train_loader, test_loader, optimizer, save_every, trial, polarization)
