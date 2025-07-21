@@ -30,6 +30,8 @@ class Trainer:
     ) -> None:
         self.dataset_name = dataset_name
         self.train_data = train_data
+        self.num_classes = train_data.dataset.classes
+        self.num_channels = train_data.dataset.channels
         self.validation_data = validation_data
         self.optimizer = optimizer
         self.save_every = save_every
@@ -37,9 +39,6 @@ class Trainer:
         self.polarization = polarization
 
         # set the inputsize and num_channels for more robust training on any dataset
-        sample_input, sample_target = next(iter(train_data))
-        self.num_channels = sample_input.shape[1]
-        self.num_classes = model.num_classes
         self.model = model
         self.model_name = model.__class__.__name__
         self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
@@ -47,12 +46,11 @@ class Trainer:
         self.gpu_id = int(os.environ["LOCAL_RANK"])
 
         if self.gpu_id == 0:
-            print(f"\nSample Input Shape: {sample_input.shape}")
-            print(f"Sample Target Shape: {sample_target.shape}")
-            print(f"Model Input Channels: {self.model.input_channels}")
-            print(f"Sample Num Classes: {self.num_classes}")
-            print(f"Model Num Classes: {self.model.num_classes}\n")
-
+            print(f"\nClasses for dataset: {self.num_classes}")
+            print(f"Input Data Channels: {self.num_channels}")
+            print(f"Model Expected Input Channels: {model.num_channels}")
+            print(f"Model Classes: {model.num_classes}\n")
+            
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
 

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from s3torchconnector import S3MapDataset
 import torch
 from torch import Tensor
-from torch.utils.data import Dataset, Subset, random_split 
+from torch.utils.data import Dataset, Subset
 import torchvision.transforms as transforms
 from ProgressFile import ProgressFile
 import contextlib
@@ -18,6 +18,7 @@ class CustomDataset(Dataset):
     def __init__(
             self,
             tensors: Iterable[np.ndarray | torch.Tensor],
+            num_classes: int,
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
     ) -> None:
@@ -26,6 +27,8 @@ class CustomDataset(Dataset):
         assert all(self.tensors[0].size(0) == tensor.size(0) for tensor in self.tensors)
         self.transform = transform
         self.target_transform = target_transform
+        self.classes = num_classes
+        self.channels = tensors[0].shape[1]
 
     def __getitem__(self, index):
         data = self.tensors[0][index]
@@ -117,6 +120,7 @@ def _load_complex_dataset(
     if training_split is None:
         dataset = CustomDataset(
             (inputs, labels),
+            num_classes=7,
             transform=transform,
             target_transform=target_transform,
         )
@@ -140,6 +144,7 @@ def _load_complex_dataset(
         datasets.append(
             CustomDataset(
                 (input_data, label_data),
+                num_classes=7,
                 transform = custom_transform,
             )
         )
