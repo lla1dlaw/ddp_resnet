@@ -129,7 +129,7 @@ def _load_complex_dataset(
     elif polarization is None: # treats each set of data as a separate channel 
         HH_array = np.expand_dims(HH_array, axis=1) if HH_array.shape[1] != 1 else HH_array
         HV_array = np.expand_dims(HV_array, axis=1) if HV_array.shape[1] != 1 else HV_array
-        inputs = np.stack((HH_array, HV_array), axis=1) 
+        inputs = np.concatenate((HH_array, HV_array), axis=1) 
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
 
