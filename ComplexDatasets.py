@@ -117,20 +117,24 @@ def _load_complex_dataset(
 
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
 
+    shuffle_arrays(inputs, labels) # arrays are alwyas shuffled
+
     if training_split is None:
+        mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+        std = np.std(inputs, axis=(0, 2, 3))
+        custom_transform = transforms.Compose([
+            transforms.Normalize((mean), (std))
+        ])
         dataset = CustomDataset(
             (inputs, labels),
             num_classes=7,
-            transform=transform,
+            transform=custom_transform,
             target_transform=target_transform,
         )
         return dataset
 
-
-    shuffle_arrays(inputs, labels)
-    split_indexes = [int(len(inputs) * split) for split in training_split[:-1]]
-
     datasets = []
+    split_indexes = [int(len(inputs) * split) for split in training_split[:-1]]
     input_split = np.split(inputs, split_indexes)
     labels_split = np.split(labels, split_indexes)
 
