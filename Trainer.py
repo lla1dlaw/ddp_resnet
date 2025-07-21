@@ -157,6 +157,8 @@ class Trainer:
             TimeRemainingColumn(),
             TextColumn("[green]Train Acc: {task.fields[train_acc]}"),
             TextColumn("[green]Val Acc: {task.fields[val_acc]}"),
+            TextColumn("[red]Train loss: {task.fields[train_loss]}"),
+            TextColumn("[red]Val Loss: {task.fields[val_loss]}"),
         ]
 
         progress_context = Progress(*progress_columns) if self.gpu_id == 0 else contextlib.nullcontext()
@@ -171,7 +173,9 @@ class Trainer:
                     progress_bar.update(
                         task,
                         train_acc=f"{train_top1:.4f}",
-                        val_acc=f"{val_top1:.4f}"
+                        val_acc=f"{val_top1:.4f}",
+                        train_loss=f"{epoch_loss:.4f}",
+                        val_loss=f"{val_loss:.4f}",
                     )
 
                     wandb_metrics = {
