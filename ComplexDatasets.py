@@ -110,16 +110,15 @@ def _load_complex_dataset(
         HV_array = np.expand_dims(HV_array, axis=1) if HV_array.shape[1] != 1 else HV_array
         inputs = np.stack((HH_array, HV_array), axis=1) 
 
-    if dtype == 'real': # stacks real and imaginary components together and doubles channels as a result
-        real = inputs.real
-        imag = inputs.imag
-        inputs = np.concatenate((real, imag), axis=1)
-
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
 
     shuffle_arrays(inputs, labels) # arrays are alwyas shuffled
 
     if training_split is None:
+        if dtype == 'real':
+            real = inputs.real
+            imag = inputs.imag
+            inputs = np.concatenate((real, imag), axis=1)
         mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
         std = np.std(inputs, axis=(0, 2, 3))
         custom_transform = transforms.Compose([
@@ -139,6 +138,11 @@ def _load_complex_dataset(
     labels_split = np.split(labels, split_indexes)
 
     for input_data, label_data in zip(input_split, labels_split):
+        if dtype == 'real':
+            real = input_data.real
+            imag = input_data.imag
+            input_data = np.concatenate((real, imag), axis=1)
+
         assert len(input_data) == len(label_data)  # ensure that labels and inputs are the same size
         mean = np.mean(input_data, axis=(0, 2, 3))
         std = np.std(input_data, axis=(0, 2, 3))
