@@ -157,7 +157,7 @@ class Trainer:
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
-            self.project_name = f"{self.model_name}-{self.dataset_name}-{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
+            self.project_name = f"{self.model_name}-{self.dataset_name}_{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
                 project=self.project_name,
