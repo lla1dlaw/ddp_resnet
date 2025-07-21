@@ -135,33 +135,10 @@ def _load_complex_dataset(
 
     shuffle_arrays(inputs, labels) # arrays are alwyas shuffled
 
-    if training_split is None:
-        if dtype == 'real':
-            real = inputs.real
-            imag = inputs.imag
-            inputs = np.concatenate((real, imag), axis=1)
-
-            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
-            std = np.std(inputs, axis=(0, 2, 3))
-            custom_transform = transforms.Compose([
-                transforms.Normalize((mean), (std))
-            ])
-        elif dtype == 'complex':
-            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
-            std = np.std(inputs, axis=(0, 2, 3))
-            custom_transform = ComplexNormalize(mean, std)
-        
-        dataset = CustomDataset(
-            (inputs, labels),
-            num_classes=7,
-            transform=custom_transform,
-        )
-        return dataset
-
     datasets = []
-    split_indexes = [int(len(inputs) * split) for split in training_split[:-1]]
-    input_split = np.split(inputs, split_indexes)
-    labels_split = np.split(labels, split_indexes)
+    split_indexes = [int(len(inputs) * split) for split in training_split[:-1]] if training_split is not None else None
+    input_split = np.split(inputs, split_indexes) if split_indexes is not None else np.array([inputs])
+    labels_split = np.split(labels, split_indexes) if split_indexes is not None else np.array([labels])
 
     for input_data, label_data in zip(input_split, labels_split):
         if dtype == 'real':
@@ -169,15 +146,15 @@ def _load_complex_dataset(
             imag = input_data.imag
             input_data = np.concatenate((real, imag), axis=1)
 
-            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
-            std = np.std(inputs, axis=(0, 2, 3))
+            mean = np.mean(input_data, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(input_data, axis=(0, 2, 3))
             custom_transform = transforms.Compose([
                 transforms.Normalize((mean), (std))
             ])
 
         elif dtype == 'complex':
-            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
-            std = np.std(inputs, axis=(0, 2, 3))
+            mean = np.mean(input_data, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(input_data, axis=(0, 2, 3))
             custom_transform = ComplexNormalize(mean, std)
 
         assert len(input_data) == len(label_data)  # ensure that labels and inputs are the same size
