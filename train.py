@@ -52,7 +52,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         if model_type == 'complex':
             model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
-            model = RealResNet('IB', input_channels=num_channels, num_classes=num_classes)
+            model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
         if rank == 0:
             print(f"- Initializing Trainer...")

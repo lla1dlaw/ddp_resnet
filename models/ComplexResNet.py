@@ -385,6 +385,7 @@ class ComplexResNet(nn.Module):
         self.initial_filters = config['filters']
         self.blocks_per_stage = config['blocks_per_stage']
         activation_map = {'crelu': CReLU, 'zrelu': ZReLU, 'modrelu': ModReLU, 'complex_cardioid': ComplexCardioid}
+        self.activation_function = activation_function
         self.activation_fn_class = activation_map.get(activation_function.lower())
         if self.activation_fn_class is None:
             raise ValueError(f"Unknown activation function: {activation_function}")

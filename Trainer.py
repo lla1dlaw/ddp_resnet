@@ -38,6 +38,7 @@ class Trainer:
         self.num_classes = len(torch.unique(sample_target))
         self.model = model
         self.model_name = model.__class__.__name__
+        self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
         self.results_dir = os.path.join('./results', self.model_name)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.model = self.model.to(self.gpu_id)
