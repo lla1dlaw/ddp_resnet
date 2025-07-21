@@ -42,7 +42,7 @@ class Trainer:
         self.model = model
         self.model_name = model.__class__.__name__
         self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
-        self.model_name = f"{self.model_name}-{self.polarization}" if self.polarization is not None else self.model_name
+        self.model_name = f"{self.model_name}-{self.dataset_name}-{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
         self.results_dir = os.path.join('./results', self.model_name)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
 
@@ -147,8 +147,8 @@ class Trainer:
         if not email_user or not email_pass:
             print("EMAIL_USER or EMAIL_PASS not found in .env file. Skipping email notification.")
             return
-        msg = MIMEText(f"View Training stats for {self.project_name} here: {url}")
-        msg['Subject'] = f"Began Training for {self.project_name}"
+        msg = MIMEText(f"View Training stats for {self.model_name} here: {url}")
+        msg['Subject'] = f"Began Training for {self.model_name}"
         msg['From'] = email_user
         msg['To'] = email_user
         try:
@@ -162,10 +162,9 @@ class Trainer:
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
-            self.project_name = f"{self.model_name}-{self.dataset_name}_{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
-                project=self.project_name,
+                project=self.model_name,
                 name=f"Trial_{self.trial}_{datetime.now()}",
                 config={
                     "architecture": "ComplexResNet",
