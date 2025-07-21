@@ -31,7 +31,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     dataset_name = dataset if dataset is not None else dataset_name
 
 
-    base_lr = 0.01
+    base_lr = 0.001
     lr = base_lr * torch.cuda.device_count()
 
     if rank == 0:
@@ -79,5 +79,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     rank = int(os.environ["LOCAL_RANK"])
+    torch.autograd.set_detect_anomaly(True)
 
     main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.model_type, args.architecture, args.activation, args.trials)

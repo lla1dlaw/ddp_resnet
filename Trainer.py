@@ -146,7 +146,7 @@ class Trainer:
                     "epochs": max_epochs,
                 },
             )
-
+            print(f"Starting Training for {self.model_name}")
             print(f"View Run Stats here: {run.url}")
         total_steps = max_epochs * len(self.train_data)
         
