@@ -47,9 +47,10 @@ class Trainer:
 
         if self.gpu_id == 0:
             print(f"\nSample Input Shape: {sample_input.shape}")
-            print(f"Sample Target Shape: {sample_target.shape}\n")
+            print(f"Sample Target Shape: {sample_target.shape}")
             print(f"Model Input Channels: {self.model.input_channels}")
-            print(f"Model Num Classes: {self.model.num_classes}")
+            print(f"Sample Num Classes: {self.num_classes}")
+            print(f"Model Num Classes: {self.model.num_classes}\n")
 
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
