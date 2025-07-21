@@ -73,7 +73,7 @@ class Trainer:
     def _run_epoch(self, epoch, progress_bar, task_id):
         loss_total = 0
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=3).to(self.gpu_id)
         criterion = nn.CrossEntropyLoss().to(self.gpu_id)
         self.train_data.sampler.set_epoch(epoch)
 
@@ -102,7 +102,7 @@ class Trainer:
 
     def _validate(self):
         top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=5).to(self.gpu_id)
+        top5_acc = MulticlassAccuracy(self.num_classes, top_k=3).to(self.gpu_id)
         total_loss = 0
         criterion = nn.CrossEntropyLoss().to(self.gpu_id)
 
@@ -206,18 +206,12 @@ class Trainer:
                     )
 
                     wandb_metrics = {
-                        'Accuracy': {
-                            'Training Accuracy': train_top1,
-                            'Validation Accuracy': val_top1,
-                        },
-                        'Loss': {
-                            'Training Loss': epoch_loss,
-                            'Validation Loss': val_loss,
-                        },
-                        'Top 5 Accuracy': {
-                            'Training Top 5 Acc': train_top5,
-                            'Validation Top 5 Acc': val_top5,
-                        }
+                        'Training Accuracy': train_top1,
+                        'Validation Accuracy': val_top1,
+                        'Training Loss': epoch_loss,
+                        'Validation Loss': val_loss,
+                        'Training Top 3 Acc': train_top5,
+                        'Validation Top 3 Acc': val_top5,
                     }
 
                     run.log(wandb_metrics)
