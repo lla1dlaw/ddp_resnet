@@ -43,6 +43,27 @@ class CustomDataset(Dataset):
         return self.tensors[0].size(0)
 
 
+class ComplexNormalize:
+    """
+    Applies normalization to a complex tensor.
+    (tensor - mean) / std
+    """
+    def __init__(self, mean: complex, std: float):
+        # Ensure the mean is complex and std is real for proper broadcasting
+        self.mean = torch.as_tensor(mean, dtype=torch.complex64)
+        self.std = torch.as_tensor(std, dtype=torch.float32)
+    
+        # ensure shape is broadcastable (same as code in pytorch library)
+        if self.mean.ndim == 1:
+            self.mean = self.mean.view(-1, 1, 1)
+        if self.std.ndim == 1:
+            self.std = self.std.view(-1, 1, 1)
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if not torch.is_complex(tensor):
+            raise TypeError(f"Input tensor should be a complex tensor. Got {tensor.dtype}.")
+        return tensor.sub_(self.mean).div_(self.std) 
+
 def S1SLC_CVDL( # Call this method only.
         root: Union[str, Path],
         polarization: str,
@@ -119,16 +140,21 @@ def _load_complex_dataset(
             real = inputs.real
             imag = inputs.imag
             inputs = np.concatenate((real, imag), axis=1)
-        mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
-        std = np.std(inputs, axis=(0, 2, 3))
-        custom_transform = transforms.Compose([
-            transforms.Normalize((mean), (std))
-        ])
+
+            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(inputs, axis=(0, 2, 3))
+            custom_transform = transforms.Compose([
+                transforms.Normalize((mean), (std))
+            ])
+        elif dtype == 'complex':
+            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(inputs, axis=(0, 2, 3))
+            custom_transform = ComplexNormalize(mean, std)
+        
         dataset = CustomDataset(
             (inputs, labels),
             num_classes=7,
             transform=custom_transform,
-            target_transform=target_transform,
         )
         return dataset
 
@@ -143,17 +169,23 @@ def _load_complex_dataset(
             imag = input_data.imag
             input_data = np.concatenate((real, imag), axis=1)
 
+            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(inputs, axis=(0, 2, 3))
+            custom_transform = transforms.Compose([
+                transforms.Normalize((mean), (std))
+            ])
+
+        elif dtype == 'complex':
+            mean = np.mean(inputs, axis=(0, 2, 3)) # axis 1 is channels (those are computed separately)
+            std = np.std(inputs, axis=(0, 2, 3))
+            custom_transform = ComplexNormalize(mean, std)
+
         assert len(input_data) == len(label_data)  # ensure that labels and inputs are the same size
-        mean = np.mean(input_data, axis=(0, 2, 3))
-        std = np.std(input_data, axis=(0, 2, 3))
-        custom_transform = transforms.Compose([
-            transforms.Normalize((mean), (std)) # fix this if necessary
-        ])
         datasets.append(
             CustomDataset(
                 (input_data, label_data),
                 num_classes=7,
-                transform = custom_transform,
+                transform=custom_transform,
             )
         )
 
