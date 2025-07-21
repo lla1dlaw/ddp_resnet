@@ -24,9 +24,9 @@ echo "--- Launching training script via torchrun ---"
 OMP_NUM_THREADS=8 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
-  ./train.py --epochs 200 --batch_size 32 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
+  ./train.py --epochs 100 --batch_size 32 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
 
 OMP_NUM_THREADS=8 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
-  ./train.py --epochs 200 --batch_size 32 --dataset S1SLC_CVDL_HH --trials 5 --model-type complex
+  ./train.py --epochs 100 --batch_size 32 --dataset S1SLC_CVDL_HH --trials 5 --model-type complex
