@@ -42,6 +42,7 @@ class Trainer:
         self.model = model
         self.model_name = model.__class__.__name__
         self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
+        self.model_name = f"{self.model_name}-{self.polarization}" if self.polarization is not None else self.model_name
         self.results_dir = os.path.join('./results', self.model_name)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
 
