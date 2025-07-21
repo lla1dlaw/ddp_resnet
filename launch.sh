@@ -10,6 +10,7 @@ module purge
 module load cudnn8.5-cuda11.7/8.5.0.96
 module load conda
 module load slurm
+module load gcc/10.2.0
 echo "Modules loaded."
 
 # 2. Activate Conda environment
@@ -20,12 +21,12 @@ echo "Activated Conda environment: $CONDA_DEFAULT_ENV"
 # torchrun will spawn a process for each GPU and set LOCAL_RANK correctly.
 echo "--- Launching training script via torchrun ---"
 
-OMP_NUM_THREADS=8 torchrun \
+OMP_NUM_THREADS=8 TORCH_LOGS="+dynamo" TORCHDYNAMO_VERBOSE=1 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
   ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type real
 
-OMP_NUM_THREADS=8 torchrun \
+OMP_NUM_THREADS=8 TORCH_LOGS="+dynamo" TORCHDYNAMO_VERBOSE=1 torchrun \
   --standalone \
   --nproc_per_node=$SLURM_GPUS_PER_NODE \
   ./train.py --epochs 200 --batch_size 64 --dataset S1SLC_CVDL_HH --trials 5 --model-type complex
