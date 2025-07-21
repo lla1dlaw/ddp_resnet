@@ -28,7 +28,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         dataset = "_".join(dataset_name.split('_')[0:2])
         polarization = dataset_name.split('_')[-1]
 
-    dataset_name = dataset if dataset is not None else dataset_name
+    dataset_name = f"{dataset}_{polarization}" if dataset is not None and polarization is not None else dataset_name
 
 
     base_lr = 0.001

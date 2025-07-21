@@ -1,11 +1,9 @@
 import os
-from torch import polar
 from torchvision.datasets import CIFAR10, CIFAR100, MNIST
 from torch.utils.data import  DataLoader
 import torchvision.transforms as transforms
 from torch.utils.data.distributed import DistributedSampler
 from ComplexDatasets import S1SLC_CVDL
-from datetime import datetime
 
 dataset_map = {
     'cifar10': CIFAR10,

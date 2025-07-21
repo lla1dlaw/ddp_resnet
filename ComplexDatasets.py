@@ -92,7 +92,7 @@ def _load_complex_dataset(
         labels_path = os.path.join(data_dir, 'Labels.npy')
         
         if rank == 0:
-            print(f"\nLoading S1SLC_CVDL {dir}")
+            print(f"\nLoading S1SLC_CVDL {dir} for model type {dtype}")
         HH_data.extend(_load_np_from_file(HH_path, rank))
         HV_data.extend(_load_np_from_file(HV_path, rank))
         label_data.extend(_load_np_from_file(labels_path, rank))

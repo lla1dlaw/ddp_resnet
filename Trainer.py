@@ -48,7 +48,7 @@ class Trainer:
         if self.gpu_id == 0:
             print(f"\nClasses for dataset: {self.num_classes}")
             print(f"Input Data Channels: {self.num_channels}")
-            print(f"Model Expected Input Channels: {model.num_channels}")
+            print(f"Model Expected Input Channels: {model.input_channels}")
             print(f"Model Classes: {model.num_classes}\n")
             
         self.model = self.model.to(self.gpu_id)
