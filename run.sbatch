@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 #SBATCH --partition=gpu-l40
-#SBATCH --gres=gpu:4
+#SBATCH --gpus-per-node=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12
 #SBATCH --output=./logs/sbatch_output_%j.log # %j adds the job ID to the log name
