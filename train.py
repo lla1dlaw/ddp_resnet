@@ -39,7 +39,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
         print(f"- Loading Dataset {dataset_name.upper()}...")
 
-    train_loader, test_loader = get_dataloaders(dataset_name, polarization, batch_size, model_type) 
+    train_loader, test_loader = get_dataloaders(dataset if dataset is not None else dataset_name, polarization, batch_size, model_type) 
     num_classes = train_loader.dataset.classes
     num_channels = train_loader.dataset.channels
 
