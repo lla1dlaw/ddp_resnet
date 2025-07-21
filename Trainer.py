@@ -1,4 +1,7 @@
 """An abstracted trainer that wraps a model in DDP and handles training."""
+import smtplib
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
 import os
 from datetime import datetime
 import torch
@@ -132,13 +135,32 @@ class Trainer:
         dataframe.to_csv(file_path, mode='a', header=write_header, index=False)
 
 
+    def send_wand_link(self, url: str):
+        load_dotenv()
+        email_user = os.getenv("EMAIL_USER")
+        email_pass = os.getenv("EMAIL_PASS")
+        if not email_user or not email_pass:
+            print("EMAIL_USER or EMAIL_PASS not found in .env file. Skipping email notification.")
+            return
+        msg = MIMEText(f"View Training stats for {self.project_name} here: {url}")
+        msg['Subject'] = f"Began Training for {self.project_name}"
+        msg['From'] = email_user
+        msg['To'] = email_user
+        try:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+                smtp_server.login(email_user, email_pass)
+                smtp_server.sendmail(email_user, email_user, msg.as_string())
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+
+
     def train(self, max_epochs: int):
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
-            project_name = f"{self.model_name}-{self.dataset_name}-{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
+            self.project_name = f"{self.model_name}-{self.dataset_name}-{self.polarization}" if self.polarization is not None else f"{self.model_name}-{self.dataset_name}"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
-                project=project_name,
+                project=self.project_name,
                 name=f"Trial_{self.trial}_{datetime.now()}",
                 config={
                     "architecture": "ComplexResNet",
@@ -148,6 +170,7 @@ class Trainer:
             )
             print(f"Starting Training for {self.model_name}")
             print(f"View Run Stats here: {run.url}")
+            self.send_wand_link(run.url)
         total_steps = max_epochs * len(self.train_data)
         
         progress_columns = [
