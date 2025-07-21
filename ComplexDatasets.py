@@ -156,7 +156,7 @@ def shuffle_arrays(*arrays):
     set_seed : Seed value if int >= 0, else seed is random.
     """
     assert all(len(arr) == len(arrays[0]) for arr in arrays)
-    seed = np.random.randint()
+    seed = np.random.randint(2**32) # random 32 bit integer
 
     for arr in arrays:
         rstate = np.random.RandomState(seed)
