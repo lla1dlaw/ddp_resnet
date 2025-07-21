@@ -146,7 +146,8 @@ def _load_complex_dataset(
 
     return datasets
 
-def shuffle_arrays(arrays, set_seed=-1):
+
+def shuffle_arrays(*arrays):
     """Shuffles arrays in-place, in the same order, along axis=0
 
     Parameters:
@@ -155,11 +156,12 @@ def shuffle_arrays(arrays, set_seed=-1):
     set_seed : Seed value if int >= 0, else seed is random.
     """
     assert all(len(arr) == len(arrays[0]) for arr in arrays)
-    seed = np.random.randint(0, 2**(32 - 1) - 1) if set_seed < 0 else set_seed
+    seed = np.random.randint()
 
     for arr in arrays:
         rstate = np.random.RandomState(seed)
         rstate.shuffle(arr)
+
 
 def _load_np_from_file(path: str, rank: int) -> np.array:
     """ Helper function to load a saved numpy array from a .npy file """
