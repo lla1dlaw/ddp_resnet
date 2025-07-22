@@ -31,7 +31,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     dataset_name = f"{dataset}_{polarization}" if dataset is not None and polarization is not None else dataset_name
 
 
-    base_lr = 0.001
+    base_lr = 0.1
     #lr = base_lr * torch.cuda.device_count()
     lr = base_lr
 
@@ -51,11 +51,13 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             model = ComplexResNet(arch, input_channels=num_channels, num_classes=7, activation_function=activation)
         elif model_type == 'real':
             model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
-        #optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True, weight_decay=1e-4)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_epochs)
+
         if rank == 0:
             print(f"- Initializing Trainer...")
-        trainer = Trainer(model, dataset_name, train_loader, test_loader, optimizer, save_every, trial, polarization)
+        trainer = Trainer(model, dataset_name, train_loader, test_loader, optimizer, save_every, trial, polarization, scheduler=scheduler)
         trainer.train(total_epochs)
 
     print(f"- Rank {rank} training complete.")

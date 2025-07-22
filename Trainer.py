@@ -27,6 +27,7 @@ class Trainer:
         save_every: int,
         trial: int,
         polarization: str,
+        scheduler: torch.optim.lr_scheduler._LRScheduler = None,
     ) -> None:
         self.dataset_name = dataset_name
         self.train_data = train_data
@@ -34,6 +35,7 @@ class Trainer:
         self.num_channels = train_data.dataset.channels
         self.validation_data = validation_data
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.save_every = save_every
         self.trial = trial
         self.polarization = polarization
@@ -60,6 +62,7 @@ class Trainer:
         outputs = self.model(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
         self.optimizer.step()
         return loss.item(), outputs
 
@@ -93,6 +96,10 @@ class Trainer:
                     description=f"Epoch {epoch+1} ",
                     advance=1
                 )
+
+        if self.scheduler:
+            self.scheduler.step()
+
         epoch_end = datetime.now()
         total_epoch_duration = epoch_end - epoch_start
         epoch_duration_seconds = total_epoch_duration.total_seconds()
