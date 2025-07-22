@@ -83,7 +83,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     parser.add_argument('--model-type', type=str, default='complex', choices=['complex', 'real'])
-    parser.add_argument('--split', type=float, nargs='+', default=[0.8, 0.1, 0.1], help='Train, validation, and test split ratios.')
+    parser.add_argument('--split', type=float, nargs='+', default=[0.7, 0.15, 0.15], help='Train, validation, and test split ratios.')
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
