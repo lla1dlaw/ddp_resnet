@@ -21,6 +21,7 @@ class Trainer:
     def __init__(
         self,
         model: torch.nn.Module,
+        arch: str, # Added arch for more descriptive path names
         dataset_name: str,
         train_data: DataLoader,
         validation_data: DataLoader,
@@ -45,17 +46,31 @@ class Trainer:
         self.polarization = polarization
 
         self.model = model
-        self.model_name = model.__class__.__name__
-        self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
+        
+        # --- FIXED: Model naming now includes architecture for clarity ---
+        base_model_name = model.__class__.__name__
+        if base_model_name == "ComplexResNet":
+            # Use module to access attributes of the original model, not the DDP wrapper
+            self.model_name = f"{base_model_name}-{arch}-{self.model.module.activation_function}"
+        else: # For RealResNet
+            self.model_name = f"{base_model_name}-{arch}"
+            
         self.model_name = f"{self.model_name}-{self.dataset_name}"
+        # --- END FIX ---
+        
         self.results_dir = os.path.join('./results', self.model_name)
+        
+        # --- NEW: Added explicit attribute for the trial data directory ---
+        self.trial_data_dir = os.path.join(self.results_dir, "trial_data")
+        # --- END NEW ---
+        
         self.gpu_id = int(os.environ["LOCAL_RANK"])
         self.world_size = int(os.environ["WORLD_SIZE"])
 
         if self.gpu_id == 0:
             print(f"\nClasses for dataset: {self.num_classes}")
             print(f"Input Data Channels: {self.num_channels}")
-            print(f"Model Expected Input Channels: {model.input_channels}")
+            print(f"Model Expected Input Channels: model.input_channels")
             print(f"Model Classes: {model.num_classes}\n")
 
         self.model = self.model.to(self.gpu_id)
@@ -71,8 +86,6 @@ class Trainer:
         return loss.item(), outputs
 
     def _run_epoch(self, epoch, progress_bar, task_id):
-        # This method calculates metrics on the local training subset for each GPU
-        # For training, this is fine as the loss is averaged via backpropagation.
         top1_acc = MulticlassAccuracy(num_classes=self.num_classes, top_k=1).to(self.gpu_id)
         f1_score = MulticlassF1Score(num_classes=self.num_classes).to(self.gpu_id)
         criterion = nn.CrossEntropyLoss().to(self.gpu_id)
@@ -104,8 +117,6 @@ class Trainer:
         return epoch_loss, top1_acc.compute().item(), f1_score.compute().item(), epoch_duration_seconds
     
     def _validate(self, data_loader: DataLoader):
-        # This method runs evaluation on the local subset of data for the current GPU
-        # and returns the raw predictions and targets for later gathering.
         self.model.eval()
         all_local_preds = []
         all_local_targets = []
@@ -145,9 +156,8 @@ class Trainer:
             print(f"New best model saved to {file_path}")
 
     def _save_dataframe(self, dataframe: pd.DataFrame):
-        save_path = os.path.join(self.results_dir, "trial_data")
-        os.makedirs(save_path, exist_ok=True)
-        file_path = os.path.join(save_path, f"trial_{self.trial}.csv")
+        os.makedirs(self.trial_data_dir, exist_ok=True)
+        file_path = os.path.join(self.trial_data_dir, f"trial_{self.trial}.csv")
         write_header = not os.path.exists(file_path)
         dataframe.to_csv(file_path, mode='a', header=write_header, index=False)
 
@@ -201,10 +211,8 @@ class Trainer:
             for epoch in range(max_epochs):
                 train_loss, train_acc, train_f1, epoch_duration = self._run_epoch(epoch, progress_bar, task)
                 
-                # --- CORRECT DDP VALIDATION ---
                 val_loss_local, val_preds_local, val_targets_local = self._validate(self.validation_data)
                 
-                # Gather results from all GPUs
                 gathered_preds = [torch.zeros_like(val_preds_local) for _ in range(self.world_size)]
                 gathered_targets = [torch.zeros_like(val_targets_local) for _ in range(self.world_size)]
                 dist.all_gather(gathered_preds, val_preds_local)
@@ -212,14 +220,12 @@ class Trainer:
                 
                 gathered_losses = [0.0] * self.world_size
                 dist.all_gather_object(gathered_losses, val_loss_local)
-                # --- END GATHERING ---
 
                 if self.gpu_id == 0:
                     all_preds = torch.cat(gathered_preds)
                     all_targets = torch.cat(gathered_targets)
                     val_loss = sum(gathered_losses) / self.world_size
                     
-                    # Calculate metrics on the full, gathered data
                     probs = F.softmax(all_preds, dim=1).to(self.gpu_id)
                     val_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)(probs, all_targets).item()
                     val_precision = MulticlassPrecision(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
@@ -232,7 +238,6 @@ class Trainer:
 
                     progress_bar.update(task, val_acc=f"{val_acc:.4f}", best_val_acc=f"{best_val_acc:.4f}", val_loss=f"{val_loss:.4f}")
 
-                    # Log metrics to WandB
                     run.log({
                         'Training Accuracy': train_acc, 'Validation Accuracy': val_acc,
                         'Training Loss': train_loss, 'Validation Loss': val_loss,
@@ -240,7 +245,6 @@ class Trainer:
                         'Validation Precision': val_precision, 'Validation Recall': val_recall,
                     })
 
-                    # Save metrics to CSV
                     metrics = {"epoch": [epoch+1], "train loss": [train_loss], "train acc": [train_acc], "train f1": [train_f1],
                                "val loss": [val_loss], "val acc": [val_acc], "val f1": [val_f1], 
                                "val precision": [val_precision], "val recall": [val_recall], "epoch_duration_sec": [epoch_duration]}
@@ -249,10 +253,8 @@ class Trainer:
                     if epoch % self.save_every == 0:
                         self._save_checkpoint(epoch)
 
-        dist.barrier() # Wait for all processes to finish training
+        dist.barrier()
         
-        # --- FINAL TESTING ONCE AT THE END ---
-        # Each process loads the best model
         best_model_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}', "best_model.pt")
         self.model.module.load_state_dict(torch.load(best_model_path, map_location=self.gpu_id))
 
