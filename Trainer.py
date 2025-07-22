@@ -8,12 +8,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torchmetrics.classification import MulticlassAccuracy
-from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TaskProgressColumn # <--- ADD THIS
+from torchmetrics.classification import MulticlassAccuracy, MulticlassPrecision, MulticlassRecall, MulticlassF1Score, MulticlassConfusionMatrix
+from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, TaskProgressColumn
 import wandb
 import contextlib
 import pandas as pd
 import torch.nn.functional as F
+import torch.distributed as dist
 
 
 class Trainer:
@@ -23,6 +24,7 @@ class Trainer:
         dataset_name: str,
         train_data: DataLoader,
         validation_data: DataLoader,
+        test_data: DataLoader,
         optimizer: torch.optim.Optimizer,
         save_every: int,
         trial: int,
@@ -31,29 +33,31 @@ class Trainer:
     ) -> None:
         self.dataset_name = dataset_name
         self.train_data = train_data
-        self.num_classes = train_data.dataset.classes
-        self.num_channels = train_data.dataset.channels
         self.validation_data = validation_data
+        self.test_data = test_data
+        self.class_names = train_data.dataset.dataset.classes if hasattr(train_data.dataset, 'dataset') else train_data.dataset.classes
+        self.num_classes = len(self.class_names)
+        self.num_channels = train_data.dataset.dataset.channels if hasattr(train_data.dataset, 'dataset') else train_data.dataset.channels
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.save_every = save_every
         self.trial = trial
         self.polarization = polarization
 
-        # set the inputsize and num_channels for more robust training on any dataset
         self.model = model
         self.model_name = model.__class__.__name__
         self.model_name = f"{self.model.__class__.__name__}-{self.model.activation_function}" if self.model_name == "ComplexResNet" else self.model_name
         self.model_name = f"{self.model_name}-{self.dataset_name}"
         self.results_dir = os.path.join('./results', self.model_name)
         self.gpu_id = int(os.environ["LOCAL_RANK"])
+        self.world_size = int(os.environ["WORLD_SIZE"])
 
         if self.gpu_id == 0:
             print(f"\nClasses for dataset: {self.num_classes}")
             print(f"Input Data Channels: {self.num_channels}")
             print(f"Model Expected Input Channels: {model.input_channels}")
             print(f"Model Classes: {model.num_classes}\n")
-            
+
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
 
@@ -66,21 +70,16 @@ class Trainer:
         self.optimizer.step()
         return loss.item(), outputs
 
-
-    def _run_val_batch(self, inputs, targets, criterion):
-        outputs = self.model(inputs)
-        loss = criterion(outputs, targets)
-        return loss.item(), outputs
-
-
     def _run_epoch(self, epoch, progress_bar, task_id):
-        loss_total = 0
-        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=3).to(self.gpu_id)
+        # This method calculates metrics on the local training subset for each GPU
+        # For training, this is fine as the loss is averaged via backpropagation.
+        top1_acc = MulticlassAccuracy(num_classes=self.num_classes, top_k=1).to(self.gpu_id)
+        f1_score = MulticlassF1Score(num_classes=self.num_classes).to(self.gpu_id)
         criterion = nn.CrossEntropyLoss().to(self.gpu_id)
         self.train_data.sampler.set_epoch(epoch)
-
         self.model.train()
+
+        loss_total = 0
         epoch_start = datetime.now()
         for inputs, targets in self.train_data:
             inputs = inputs.to(self.gpu_id)
@@ -89,14 +88,11 @@ class Trainer:
             probs = F.softmax(outputs, dim=1)
             loss_total += loss
             top1_acc.update(probs, targets)
-            top5_acc.update(probs, targets)
-            if progress_bar is not None:
-                progress_bar.update(
-                    task_id,
-                    description=f"Epoch {epoch+1} ",
-                    advance=1
-                )
+            f1_score.update(probs, targets)
 
+            if progress_bar is not None and self.gpu_id == 0:
+                progress_bar.update(task_id, description=f"Epoch {epoch+1} ", advance=1)
+        
         if self.scheduler:
             self.scheduler.step()
 
@@ -104,50 +100,58 @@ class Trainer:
         total_epoch_duration = epoch_end - epoch_start
         epoch_duration_seconds = total_epoch_duration.total_seconds()
         epoch_loss = loss_total / len(self.train_data)
-        return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item(), epoch_duration_seconds
-
-
-    def _validate(self):
-        top1_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)
-        top5_acc = MulticlassAccuracy(self.num_classes, top_k=3).to(self.gpu_id)
+        
+        return epoch_loss, top1_acc.compute().item(), f1_score.compute().item(), epoch_duration_seconds
+    
+    def _validate(self, data_loader: DataLoader):
+        # This method runs evaluation on the local subset of data for the current GPU
+        # and returns the raw predictions and targets for later gathering.
+        self.model.eval()
+        all_local_preds = []
+        all_local_targets = []
         total_loss = 0
         criterion = nn.CrossEntropyLoss().to(self.gpu_id)
 
-        self.model.eval()
-
         with torch.no_grad():
-            for inputs, targets in self.validation_data:
+            for inputs, targets in data_loader:
                 inputs = inputs.to(self.gpu_id)
                 targets = targets.to(self.gpu_id)
-                loss, outputs = self._run_val_batch(inputs, targets, criterion)
-                probs = F.softmax(outputs, dim=1)
-                top1_acc.update(probs, targets)
-                top5_acc.update(probs, targets)
-                total_loss += loss
+                outputs = self.model(inputs)
+                loss = criterion(outputs, targets)
+                total_loss += loss.item()
+                all_local_preds.append(outputs)
+                all_local_targets.append(targets)
 
-        epoch_loss = total_loss / len(self.validation_data)
-        return epoch_loss, top1_acc.compute().item(), top5_acc.compute().item()
-
+        local_preds_tensor = torch.cat(all_local_preds)
+        local_targets_tensor = torch.cat(all_local_targets)
+        avg_loss = total_loss / len(data_loader)
+        
+        return avg_loss, local_preds_tensor, local_targets_tensor
 
     def _save_checkpoint(self, epoch):
         save_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}')
         os.makedirs(save_path, exist_ok=True)
         file_path = os.path.join(save_path, f"epoch_{epoch}_checkpoint.pt")
-
         ckp = self.model.module.state_dict()
         torch.save(ckp, file_path)
 
+    def _save_best_model(self):
+        save_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}')
+        os.makedirs(save_path, exist_ok=True)
+        file_path = os.path.join(save_path, "best_model.pt")
+        ckp = self.model.module.state_dict()
+        torch.save(ckp, file_path)
+        if self.gpu_id == 0:
+            print(f"New best model saved to {file_path}")
 
     def _save_dataframe(self, dataframe: pd.DataFrame):
         save_path = os.path.join(self.results_dir, "trial_data")
         os.makedirs(save_path, exist_ok=True)
         file_path = os.path.join(save_path, f"trial_{self.trial}.csv")
-
         write_header = not os.path.exists(file_path)
         dataframe.to_csv(file_path, mode='a', header=write_header, index=False)
 
-
-    def send_wand_link(self, url: str):
+    def _send_wandb_link(self, url: str):
         load_dotenv()
         email_user = os.getenv("EMAIL_USER")
         email_pass = os.getenv("EMAIL_PASS")
@@ -165,84 +169,111 @@ class Trainer:
         except Exception as e:
             print(f"Failed to send email: {e}")
 
-
     def train(self, max_epochs: int):
+        run = None
         if self.gpu_id == 0:
             os.environ["WANDB_SILENT"] = "true"
             run = wandb.init(
                 entity="liamlaidlaw-boise-state-university",
                 project=self.model_name,
                 name=f"Trial_{self.trial}_{datetime.now()}",
-                config={
-                    "architecture": "ComplexResNet",
-                    "dataset": 'S1SLC_CVDL',
-                    "epochs": max_epochs,
-                },
+                config={ "architecture": "ComplexResNet", "dataset": 'S1SLC_CVDL', "epochs": max_epochs },
             )
             print(f"Starting Training for {self.model_name}")
             print(f"View Run Stats here: {run.url}")
-            self.send_wand_link(run.url)
-        total_steps = max_epochs * len(self.train_data)
+            self._send_wandb_link(run.url)
         
+        total_steps = max_epochs * len(self.train_data)
         progress_columns = [
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-            TextColumn("[green]Train Acc: {task.fields[train_acc]}"),
-            TextColumn("[green]Val Acc: {task.fields[val_acc]}"),
-            TextColumn("[red]Train loss: {task.fields[train_loss]}"),
+            TextColumn("[progress.description]{task.description}"), BarColumn(), TaskProgressColumn(), TimeRemainingColumn(),
+            TextColumn("[green]Val Acc: {task.fields[val_acc]}"), TextColumn("[magenta]Best Val Acc: {task.fields[best_val_acc]}"),
             TextColumn("[red]Val Loss: {task.fields[val_loss]}"),
         ]
+        
+        best_val_acc = 0.0
 
         progress_context = Progress(*progress_columns) if self.gpu_id == 0 else contextlib.nullcontext()
         with progress_context as progress_bar:
-            task=None
+            task = None
             if self.gpu_id == 0:
-                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps, train_acc=" - ", val_acc=" - ", train_loss=" - ", val_loss=" - ")
+                task = progress_bar.add_task(description="Epoch 1 ", total=total_steps, val_acc=" - ", best_val_acc=" - ", val_loss=" - ")
+
             for epoch in range(max_epochs):
-                epoch_loss, train_top1, train_top5, epoch_duration = self._run_epoch(epoch, progress_bar, task)
-                val_loss, val_top1, val_top5 = self._validate()
+                train_loss, train_acc, train_f1, epoch_duration = self._run_epoch(epoch, progress_bar, task)
+                
+                # --- CORRECT DDP VALIDATION ---
+                val_loss_local, val_preds_local, val_targets_local = self._validate(self.validation_data)
+                
+                # Gather results from all GPUs
+                gathered_preds = [torch.zeros_like(val_preds_local) for _ in range(self.world_size)]
+                gathered_targets = [torch.zeros_like(val_targets_local) for _ in range(self.world_size)]
+                dist.all_gather(gathered_preds, val_preds_local)
+                dist.all_gather(gathered_targets, val_targets_local)
+                
+                gathered_losses = [0.0] * self.world_size
+                dist.all_gather_object(gathered_losses, val_loss_local)
+                # --- END GATHERING ---
+
                 if self.gpu_id == 0:
-                    progress_bar.update(
-                        task,
-                        train_acc=f"{train_top1:.4f}",
-                        val_acc=f"{val_top1:.4f}",
-                        train_loss=f"{epoch_loss:.4f}",
-                        val_loss=f"{val_loss:.4f}",
-                    )
+                    all_preds = torch.cat(gathered_preds)
+                    all_targets = torch.cat(gathered_targets)
+                    val_loss = sum(gathered_losses) / self.world_size
+                    
+                    # Calculate metrics on the full, gathered data
+                    probs = F.softmax(all_preds, dim=1).to(self.gpu_id)
+                    val_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)(probs, all_targets).item()
+                    val_precision = MulticlassPrecision(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
+                    val_recall = MulticlassRecall(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
+                    val_f1 = MulticlassF1Score(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
 
-                    wandb_metrics = {
-                        'Training Accuracy': train_top1,
-                        'Validation Accuracy': val_top1,
-                        'Training Loss': epoch_loss,
-                        'Validation Loss': val_loss,
-                        'Training Top 3 Acc': train_top5,
-                        'Validation Top 3 Acc': val_top5,
-                    }
+                    if val_acc > best_val_acc:
+                        best_val_acc = val_acc
+                        self._save_best_model()
 
-                    run.log(wandb_metrics)
+                    progress_bar.update(task, val_acc=f"{val_acc:.4f}", best_val_acc=f"{best_val_acc:.4f}", val_loss=f"{val_loss:.4f}")
 
-                    metrics = {
-                        "train loss": epoch_loss,
-                        "train acc": train_top1,
-                        "train top5 acc": train_top5,
-                        "val loss": val_loss,
-                        "val acc": val_top1,
-                        "val top5 acc": val_top5,
-                        "epoch_duration_sec": epoch_duration,
-                    } 
+                    # Log metrics to WandB
+                    run.log({
+                        'Training Accuracy': train_acc, 'Validation Accuracy': val_acc,
+                        'Training Loss': train_loss, 'Validation Loss': val_loss,
+                        'Training F1-Score': train_f1, 'Validation F1-Score': val_f1,
+                        'Validation Precision': val_precision, 'Validation Recall': val_recall,
+                    })
 
-                    for name, metric in metrics.items():
-                        metrics[name] = [metric]
+                    # Save metrics to CSV
+                    metrics = {"epoch": [epoch+1], "train loss": [train_loss], "train acc": [train_acc], "train f1": [train_f1],
+                               "val loss": [val_loss], "val acc": [val_acc], "val f1": [val_f1], 
+                               "val precision": [val_precision], "val recall": [val_recall], "epoch_duration_sec": [epoch_duration]}
+                    self._save_dataframe(pd.DataFrame(metrics))
 
-                    final_metrics = {"epoch": [epoch+1]}
-                    final_metrics.update(metrics)
-                    metrics_df = pd.DataFrame(final_metrics)
-                    self._save_dataframe(metrics_df)
+                    if epoch % self.save_every == 0:
+                        self._save_checkpoint(epoch)
 
-                if self.gpu_id == 0 and epoch % self.save_every == 0:
-                    self._save_checkpoint(epoch)
+        dist.barrier() # Wait for all processes to finish training
+        
+        # --- FINAL TESTING ONCE AT THE END ---
+        # Each process loads the best model
+        best_model_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}', "best_model.pt")
+        self.model.module.load_state_dict(torch.load(best_model_path, map_location=self.gpu_id))
+
+        test_loss_local, test_preds_local, test_targets_local = self._validate(self.test_data)
+        
+        gathered_test_preds = [torch.zeros_like(test_preds_local) for _ in range(self.world_size)]
+        gathered_test_targets = [torch.zeros_like(test_targets_local) for _ in range(self.world_size)]
+        dist.all_gather(gathered_test_preds, test_preds_local)
+        dist.all_gather(gathered_test_targets, test_targets_local)
+        
         if self.gpu_id == 0:
-            run.finish()
+            print("\nTraining finished. Evaluating best model on the complete test set...")
+            all_test_preds = torch.cat(gathered_test_preds)
+            all_test_targets = torch.cat(gathered_test_targets)
 
+            run.log({
+                "test_confusion_matrix": wandb.plot.confusion_matrix(
+                    probs=all_test_preds,
+                    y_true=all_test_targets,
+                    class_names=self.class_names
+                )
+            })
+            print(f"Final test confusion matrix logged to W&B run: {run.url}")
+            run.finish()

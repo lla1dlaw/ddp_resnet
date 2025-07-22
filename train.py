@@ -19,7 +19,7 @@ def ddp_setup():
     init_process_group(backend="nccl")
     torch.cuda.set_device(rank)
 
-def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int):
+def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int, split: list[float]):
     ddp_setup()
     polarization = None
     dataset = None
@@ -30,25 +30,32 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
 
     dataset_name = f"{dataset}_{polarization}" if dataset is not None and polarization is not None else dataset_name
 
-
     base_lr = 0.1
-    #lr = base_lr * torch.cuda.device_count()
     lr = base_lr
 
     if rank == 0:
         print(f"- Starting Train Loop on Rank {rank} with {torch.cuda.device_count()} GPUs in DDP\n")
         print(f"- Loading Dataset {dataset_name.upper()}...")
 
-    train_loader, test_loader = get_dataloaders(dataset if dataset is not None else dataset_name, polarization, batch_size, model_type) 
-    num_classes = train_loader.dataset.classes
-    num_channels = train_loader.dataset.channels
+    train_loader, val_loader, test_loader = get_dataloaders(
+        dataset_name=(dataset if dataset is not None else dataset_name), 
+        polarization=polarization, 
+        batch_size=batch_size, 
+        model_type=model_type,
+        split=split
+    )
+    
+    num_classes = train_loader.dataset.dataset.classes if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset.classes
+    num_channels = train_loader.dataset.dataset.channels if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset.channels
+
 
     for trial in range(num_trials):
         if rank == 0:
             print(f"\n---- Starting Trial {trial} ----")
             print(f"- Initializing model...")
+        
         if model_type == 'complex':
-            model = ComplexResNet(arch, input_channels=num_channels, num_classes=7, activation_function=activation)
+            model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
             model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
 
@@ -57,7 +64,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
 
         if rank == 0:
             print(f"- Initializing Trainer...")
-        trainer = Trainer(model, dataset_name, train_loader, test_loader, optimizer, save_every, trial, polarization, scheduler=scheduler)
+        trainer = Trainer(model, dataset_name, train_loader, val_loader, test_loader, optimizer, save_every, trial, polarization, scheduler=scheduler)
         trainer.train(total_epochs)
 
     print(f"- Rank {rank} training complete.")
@@ -76,10 +83,14 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     parser.add_argument('--model-type', type=str, default='complex', choices=['complex', 'real'])
+    parser.add_argument('--split', type=float, nargs='+', default=[0.8, 0.1, 0.1], help='Train, validation, and test split ratios.')
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
+
+    if sum(args.split) != 1.0:
+        raise ValueError(f"Split ratios must sum to 1.0. Got: {sum(args.split)}")
 
     rank = int(os.environ["LOCAL_RANK"])
     torch.autograd.set_detect_anomaly(True)
 
-    main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.model_type, args.architecture, args.activation, args.trials)
+    main(rank, args.save_every, args.epochs, args.dataset, args.batch_size, args.model_type, args.architecture, args.activation, args.trials, args.split)
