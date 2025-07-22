@@ -261,7 +261,7 @@ class Trainer:
                 all_test_targets = torch.cat(gathered_test_targets)
                 cpu_preds = all_test_preds.cpu()
                 cpu_targets = all_test_targets.cpu()
-                print(len(cpu_preds), len(cpu_targets))
+                print(cpu_preds.shape, cpu_targets.shape)
 
                 # Calculate final test metrics
                 test_probs = F.softmax(cpu_preds, dim=1)
