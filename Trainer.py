@@ -153,6 +153,14 @@ class Trainer:
         file_path = os.path.join(self.trial_data_dir, f"trial_{self.trial}.csv")
         dataframe.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
 
+    # --- NEW: Method to save final test metrics ---
+    def _save_final_test_metrics(self, test_metrics: dict):
+        os.makedirs(self.trial_data_dir, exist_ok=True)
+        file_path = os.path.join(self.trial_data_dir, "final_test_metrics.csv")
+        df = pd.DataFrame([test_metrics])
+        df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
+    # --- END NEW ---
+
     def _send_wandb_link(self, url: str):
         pass
 
@@ -233,11 +241,13 @@ class Trainer:
 
         dist.barrier()
         
-        # --- FINAL TESTING ONCE AT THE END ---
         best_model_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}', "best_model.pt")
-        if os.path.exists(best_model_path):
-            self.model.module.load_state_dict(torch.load(best_model_path, map_location=f'cuda:{self.gpu_id}'))
+        
+        model_exists = torch.tensor(os.path.exists(best_model_path), dtype=torch.int, device=self.gpu_id)
+        dist.broadcast(model_exists, src=0)
 
+        if model_exists.item() == 1:
+            self.model.module.load_state_dict(torch.load(best_model_path, map_location=f'cuda:{self.gpu_id}'))
             test_loss_local, test_preds_local, test_targets_local = self._validate(self.test_data)
             
             gathered_test_preds = [torch.zeros_like(test_preds_local) for _ in range(self.world_size)]
@@ -246,24 +256,35 @@ class Trainer:
             dist.all_gather(gathered_test_targets, test_targets_local)
             
             if self.gpu_id == 0:
-                print("\nEvaluating best model on the complete test set...")
+                print(f"\nEvaluating best model from trial {self.trial} on the complete test set...")
                 all_test_preds = torch.cat(gathered_test_preds)
                 all_test_targets = torch.cat(gathered_test_targets)
-
-                # --- FIXED: Move tensors to CPU before passing to wandb ---
                 cpu_preds = all_test_preds.cpu()
                 cpu_targets = all_test_targets.cpu()
 
-                run.log({
-                    "test_confusion_matrix": wandb.plot.confusion_matrix(
-                        probs=cpu_preds,
-                        y_true=cpu_targets,
-                        class_names=self.class_names
-                    )
+                # Calculate final test metrics
+                test_probs = F.softmax(cpu_preds, dim=1)
+                test_acc = MulticlassAccuracy(self.num_classes, top_k=1)(test_probs, cpu_targets).item()
+                test_f1 = MulticlassF1Score(self.num_classes)(test_probs, cpu_targets).item()
+                test_precision = MulticlassPrecision(self.num_classes)(test_probs, cpu_targets).item()
+                test_recall = MulticlassRecall(self.num_classes)(test_probs, cpu_targets).item()
+
+                run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
+                        probs=cpu_preds, y_true=cpu_targets, class_names=self.class_names)
                 })
-                # --- END FIX ---
-                print(f"Final test confusion matrix logged to W&B run.")
+
+                # Save final test metrics to a file
+                test_metrics = {
+                    'trial': self.trial,
+                    'test_acc': test_acc,
+                    'test_f1': test_f1,
+                    'test_precision': test_precision,
+                    'test_recall': test_recall,
+                }
+                self._save_final_test_metrics(test_metrics)
+                print(f"Final test metrics for trial {self.trial} saved.")
+        elif self.gpu_id == 0:
+            print(f"Skipping final test for trial {self.trial}: best model checkpoint not found.")
         
-        if self.gpu_id == 0:
-            if run:
-                run.finish()
+        if self.gpu_id == 0 and run:
+            run.finish()
