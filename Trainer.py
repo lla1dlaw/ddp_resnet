@@ -273,6 +273,29 @@ class Trainer:
                 test_precision = MulticlassPrecision(self.num_classes)(test_probs, cpu_targets).item()
                 test_recall = MulticlassRecall(self.num_classes)(test_probs, cpu_targets).item()
 
+                try:
+                    unique_labels = torch.unique(cpu_targets)
+                    num_unique_labels = len(unique_labels)
+                    num_class_names = len(self.class_names)
+                    
+                    print("\n---  W&B Confusion Matrix Debug ---")
+                    print(f"Number of class names provided: {num_class_names}")
+                    print(f"Class names: {self.class_names}")
+                    print(f"Number of unique labels in y_true: {num_unique_labels}")
+                    print(f"Unique labels found in y_true: {unique_labels.tolist()}")
+                    
+                    if num_unique_labels > num_class_names:
+                        print("\nERROR: Mismatch detected! The number of unique labels is greater than the number of class names.")
+                        out_of_bounds = cpu_targets[cpu_targets >= num_class_names]
+                        print(f"Specifically, these out-of-bounds labels were found: {torch.unique(out_of_bounds).tolist()}")
+                    elif torch.max(unique_labels) >= num_class_names:
+                        print(f"\nERROR: Mismatch detected! Max label index ({torch.max(unique_labels)}) is out of bounds for class_names list (size {num_class_names}).")
+                    else:
+                        print("Debug check passed. Label counts and values appear to match.")
+                    print("-------------------------------------\n")
+                except Exception as e:
+                    print(f"An error occurred during the debug check: {e}")
+
                 run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
                         probs=cpu_preds, y_true=cpu_targets, class_names=self.class_names)
                 })

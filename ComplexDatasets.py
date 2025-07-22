@@ -21,10 +21,8 @@ class CustomDataset(Dataset):
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
     ) -> None:
-        # --- FIXED: Hardcoded class names and derived number of classes ---
         self.classes = ['AG', 'FR', 'HD', 'HR', 'LD', 'IR', 'WR']
         self.num_classes = len(self.classes)
-        # --- END FIX ---
         
         self.tensors = [torch.as_tensor(tensor) for tensor in tensors]
         assert all(self.tensors[0].size(0) == tensor.size(0) for tensor in self.tensors)
