@@ -105,7 +105,6 @@ def run_test(rank: int):
 # --- MODIFIED: main function now accepts pre-made dataloaders and info ---
 def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch_size: int, model_type:str, arch: str, activation: str, num_trials: int, split: list[float],
          train_loader=None, val_loader=None, test_loader=None, num_classes=None, num_channels=None):
-    ddp_setup()
     polarization = None
     
     # If dataloaders are not provided, load them from disk (normal operation)
@@ -178,6 +177,7 @@ if __name__ == "__main__":
     parser.add_argument("--local-rank", "--local_rank", type=int, default=os.environ.get("LOCAL_RANK"))
     args = parser.parse_args()
 
+    ddp_setup()
     rank = int(os.environ["LOCAL_RANK"])
     torch.autograd.set_detect_anomaly(True)
 
