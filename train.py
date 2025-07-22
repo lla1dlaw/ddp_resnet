@@ -45,8 +45,14 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         split=split
     )
     
-    num_classes = train_loader.dataset.dataset.classes if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset.classes
-    num_channels = train_loader.dataset.dataset.channels if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset.channels
+    # --- FIXED: Correctly access the integer attributes for model initialization ---
+    # Get the underlying dataset, whether it's wrapped by a Subset or not
+    root_dataset = train_loader.dataset.dataset if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset
+    
+    # Use the correct integer attributes
+    num_classes = root_dataset.num_classes  # This is an INT (e.g., 7)
+    num_channels = root_dataset.channels   # This is an INT
+    # --- END FIX ---
 
 
     for trial in range(num_trials):
@@ -54,6 +60,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             print(f"\n---- Starting Trial {trial} ----")
             print(f"- Initializing model...")
         
+        # Now, `num_classes` is guaranteed to be an integer, fixing the TypeError
         if model_type == 'complex':
             model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
         elif model_type == 'real':
@@ -83,11 +90,11 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=128, type=int, help='Input batch size on each device (default: 1024)')
     parser.add_argument('--trials', type=int, default=5, help='The number of trials to run the experiment for.')
     parser.add_argument('--model-type', type=str, default='complex', choices=['complex', 'real'])
-    parser.add_argument('--split', type=float, nargs='+', default=[0.7, 0.15, 0.15], help='Train, validation, and test split ratios.')
+    parser.add_argument('--split', type=float, nargs='+', default=[0.8, 0.1, 0.1], help='Train, validation, and test split ratios.')
     parser.add_argument("--local-rank", "--local_rank", type=int)
     args = parser.parse_args()
 
-    if sum(args.split) != 1.0:
+    if not (0.999 < sum(args.split) < 1.001):
         raise ValueError(f"Split ratios must sum to 1.0. Got: {sum(args.split)}")
 
     rank = int(os.environ["LOCAL_RANK"])
