@@ -49,7 +49,6 @@ class Trainer:
         self.polarization = polarization
         self.model = model
         
-        # --- FIXED: Removed .module from calls before the DDP wrapper is applied ---
         base_model_name = model.__class__.__name__
         if base_model_name == "ComplexResNet":
             self.model_name = f"{base_model_name}-{arch}-{model.activation_function}"
@@ -69,11 +68,8 @@ class Trainer:
             print(f"Model Expected Input Channels: {model.input_channels}")
             print(f"Model Classes: {model.num_classes}\n")
 
-        # The model is wrapped in DDP here. Calls before this line use the plain model.
-        # Calls after this line would need .module if they were accessing custom attributes.
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
-        # --- END FIX ---
 
     def _run_batch(self, inputs, targets, criterion):
         self.optimizer.zero_grad()
@@ -203,66 +199,4 @@ class Trainer:
                 gathered_losses = [0.0] * self.world_size
                 dist.all_gather_object(gathered_losses, val_loss_local)
 
-                if self.gpu_id == 0:
-                    all_preds = torch.cat(gathered_preds)
-                    all_targets = torch.cat(gathered_targets)
-                    val_loss = sum(gathered_losses) / self.world_size
-                    
-                    probs = F.softmax(all_preds, dim=1).to(self.gpu_id)
-                    val_acc = MulticlassAccuracy(self.num_classes, top_k=1).to(self.gpu_id)(probs, all_targets).item()
-                    val_precision = MulticlassPrecision(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
-                    val_recall = MulticlassRecall(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
-                    val_f1 = MulticlassF1Score(self.num_classes).to(self.gpu_id)(probs, all_targets).item()
-
-                    if val_acc > best_val_acc:
-                        best_val_acc = val_acc
-                        self._save_best_model()
-
-                    progress_bar.update(task, val_acc=f"{val_acc:.4f}", best_val_acc=f"{best_val_acc:.4f}", val_loss=f"{val_loss:.4f}")
-
-                    run.log({
-                        'Training Accuracy': train_acc, 'Validation Accuracy': val_acc,
-                        'Training Loss': train_loss, 'Validation Loss': val_loss,
-                        'Training F1-Score': train_f1, 'Validation F1-Score': val_f1,
-                        'Validation Precision': val_precision, 'Validation Recall': val_recall,
-                    })
-
-                    metrics = {"epoch": [epoch+1], "train loss": [train_loss], "train acc": [train_acc], "train f1": [train_f1],
-                               "val loss": [val_loss], "val acc": [val_acc], "val f1": [val_f1], 
-                               "val precision": [val_precision], "val recall": [val_recall], "epoch_duration_sec": [epoch_duration]}
-                    self._save_dataframe(pd.DataFrame(metrics))
-
-                    if epoch % self.save_every == 0:
-                        self._save_checkpoint(epoch)
-
-        dist.barrier()
-        
-        if self.gpu_id == 0 and self.trial == 0:
-            best_model_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}', "best_model.pt")
-            if os.path.exists(best_model_path):
-                self.model.module.load_state_dict(torch.load(best_model_path, map_location='cpu'))
-
-                test_loss_local, test_preds_local, test_targets_local = self._validate(self.test_data)
-                
-                gathered_test_preds = [torch.zeros_like(test_preds_local) for _ in range(self.world_size)]
-                gathered_test_targets = [torch.zeros_like(test_targets_local) for _ in range(self.world_size)]
-                dist.all_gather(gathered_test_preds, test_preds_local)
-                dist.all_gather(gathered_test_targets, test_targets_local)
-                
-                if self.gpu_id == 0:
-                    print("\nEvaluating best model on the complete test set...")
-                    all_test_preds = torch.cat(gathered_test_preds)
-                    all_test_targets = torch.cat(gathered_test_targets)
-
-                    run.log({
-                        "test_confusion_matrix": wandb.plot.confusion_matrix(
-                            probs=all_test_preds,
-                            y_true=all_test_targets,
-                            class_names=self.class_names
-                        )
-                    })
-                    print(f"Final test confusion matrix logged to W&B run.")
-        
-        if self.gpu_id == 0:
-            if run:
-                run.finish()
+                if
