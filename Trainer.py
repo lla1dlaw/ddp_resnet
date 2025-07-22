@@ -82,8 +82,8 @@ class Trainer:
         loss_total = 0
         epoch_start = datetime.now()
         for inputs, targets in self.train_data:
-            inputs = inputs.to(self.gpu_id)
-            targets = targets.to(self.gpu_id)
+            inputs = inputs.to(self.gpu_id, non_blocking=True)
+            targets = targets.to(self.gpu_id, non_blocking=True)
             loss, outputs = self._run_batch(inputs, targets, criterion)
             probs = F.softmax(outputs, dim=1)
             loss_total += loss
@@ -114,8 +114,8 @@ class Trainer:
 
         with torch.no_grad():
             for inputs, targets in data_loader:
-                inputs = inputs.to(self.gpu_id)
-                targets = targets.to(self.gpu_id)
+                inputs = inputs.to(self.gpu_id, non_blocking=True)
+                targets = targets.to(self.gpu_id, non_blocking=True)
                 outputs = self.model(inputs)
                 loss = criterion(outputs, targets)
                 total_loss += loss.item()
