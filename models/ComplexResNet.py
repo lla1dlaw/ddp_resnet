@@ -381,7 +381,14 @@ class ComplexResNet(nn.Module):
         super(ComplexResNet, self).__init__()
         self.num_classes = num_classes
         self.input_channels = input_channels
-        configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
+        #configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
+        # compressed resnet
+        configs = {
+            'WS': {'filters': 12, 'blocks_per_stage': [8, 8, 8]},
+            'DN': {'filters': 10, 'blocks_per_stage': [12, 11, 12]},
+            'IB': {'filters': 11, 'blocks_per_stage': [10, 9, 10]}
+        }
+
         config = configs[architecture_type]
         self.initial_filters = config['filters']
         self.blocks_per_stage = config['blocks_per_stage']
