@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torchmetrics.classification import MulticlassAccuracy, MulticlassPrecision, MulticlassRecall, MulticlassF1Score
+from torchmetrics.classification import MulticlassAccuracy, MulticlassPrecision, MulticlassRecall, MulticlassF1Score, MulticlassConfusionMatrix
 import wandb
 import contextlib
 import pandas as pd
@@ -23,10 +23,8 @@ class Trainer:
         model: torch.nn.Module,
         arch: str,
         dataset_name: str,
-        # --- MODIFIED: Accept num_classes and num_channels directly ---
         num_classes: int,
         num_channels: int,
-        # ---
         train_data: DataLoader,
         validation_data: DataLoader,
         test_data: DataLoader,
@@ -40,29 +38,23 @@ class Trainer:
         self.train_data = train_data
         self.validation_data = validation_data
         self.test_data = test_data
-        
-        # --- MODIFIED: Use passed-in arguments ---
         self.num_classes = num_classes
         self.num_channels = num_channels
-        # This logic is now robust for both real and dummy datasets
         root_dataset = train_data.dataset.dataset if hasattr(train_data.dataset, 'dataset') else train_data.dataset
         self.class_names = root_dataset.classes
-        # ---
-
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.save_every = save_every
         self.trial = trial
         self.polarization = polarization
-
         self.model = model
         
-        base_model_name = model.module.__class__.__name__
+        # --- FIXED: Removed .module from calls before the DDP wrapper is applied ---
+        base_model_name = model.__class__.__name__
         if base_model_name == "ComplexResNet":
-            self.model_name = f"{base_model_name}-{arch}-{self.model.module.activation_function}"
-        else: # For RealResNet
+            self.model_name = f"{base_model_name}-{arch}-{model.activation_function}"
+        else:
             self.model_name = f"{base_model_name}-{arch}"
-            
         self.model_name = f"{self.model_name}-{self.dataset_name}"
         
         self.results_dir = os.path.join('./results', self.model_name)
@@ -74,11 +66,14 @@ class Trainer:
         if self.gpu_id == 0:
             print(f"\nClasses for dataset: {self.num_classes}")
             print(f"Input Data Channels: {self.num_channels}")
-            print(f"Model Expected Input Channels: {model.module.input_channels}")
-            print(f"Model Classes: {model.module.num_classes}\n")
+            print(f"Model Expected Input Channels: {model.input_channels}")
+            print(f"Model Classes: {model.num_classes}\n")
 
+        # The model is wrapped in DDP here. Calls before this line use the plain model.
+        # Calls after this line would need .module if they were accessing custom attributes.
         self.model = self.model.to(self.gpu_id)
         self.model = DDP(self.model,  device_ids=[self.gpu_id])
+        # --- END FIX ---
 
     def _run_batch(self, inputs, targets, criterion):
         self.optimizer.zero_grad()
@@ -163,7 +158,6 @@ class Trainer:
         dataframe.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
 
     def _send_wandb_link(self, url: str):
-        # ... (implementation unchanged)
         pass
 
     def train(self, max_epochs: int):
@@ -243,7 +237,7 @@ class Trainer:
 
         dist.barrier()
         
-        if self.gpu_id == 0 and self.trial == 0: # Only test on the first trial
+        if self.gpu_id == 0 and self.trial == 0:
             best_model_path = os.path.join(self.results_dir, "checkpoints", f'trial_{self.trial}', "best_model.pt")
             if os.path.exists(best_model_path):
                 self.model.module.load_state_dict(torch.load(best_model_path, map_location='cpu'))
@@ -270,4 +264,5 @@ class Trainer:
                     print(f"Final test confusion matrix logged to W&B run.")
         
         if self.gpu_id == 0:
-            run.finish()
+            if run:
+                run.finish()
