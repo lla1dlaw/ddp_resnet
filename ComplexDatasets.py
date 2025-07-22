@@ -18,15 +18,18 @@ class CustomDataset(Dataset):
     def __init__(
             self,
             tensors: Iterable[np.ndarray | torch.Tensor],
-            num_classes: int,
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
     ) -> None:
+        # --- FIXED: Hardcoded class names and derived number of classes ---
+        self.classes = ['AG', 'FR', 'HD', 'HR', 'LD', 'IR', 'WR']
+        self.num_classes = len(self.classes)
+        # --- END FIX ---
+        
         self.tensors = [torch.as_tensor(tensor) for tensor in tensors]
         assert all(self.tensors[0].size(0) == tensor.size(0) for tensor in self.tensors)
         self.transform = transform
         self.target_transform = target_transform
-        self.classes = num_classes
         self.channels = tensors[0].shape[1]
 
     def __getitem__(self, index):
@@ -120,7 +123,6 @@ def _load_complex_dataset(
 
     full_dataset = CustomDataset(
         (inputs, labels),
-        num_classes=7,
         transform=final_transform
     )
 
