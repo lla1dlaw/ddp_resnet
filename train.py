@@ -73,7 +73,7 @@ def run_test(rank: int):
         'batch_size': 4,
         'model_type': 'real',
         'arch': 'WS',
-        'activation': 'relu',
+        'activation': 'crelu',
         'num_trials': 2,
         'split': [0.8, 0.1, 0.1],
         'num_classes': 3,
