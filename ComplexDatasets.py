@@ -4,8 +4,6 @@ from math import fsum
 import numpy as np
 from pathlib import Path
 from typing import Union, Optional, Callable, Iterable, Sequence
-from dotenv import load_dotenv
-from s3torchconnector import S3MapDataset
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split
@@ -17,7 +15,7 @@ import contextlib
 class CustomDataset(Dataset):
     def __init__(
             self,
-            tensors: Iterable[np.ndarray | torch.Tensor],
+            tensors: Sequence[np.ndarray | Tensor],
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
     ) -> None:
@@ -149,3 +147,7 @@ def validate_args(root_dir: str, base_dir:str, polarization: Optional[str], trai
         raise ValueError(f"Unknown argument for polarization {polarization}")
     if training_split is not None and not np.isclose(fsum(training_split), 1.0):
         raise ValueError(f"Values in training_split must sum to 1. Got: {fsum(training_split)}")
+
+
+if __name__ == "__main__":
+    trainset, valset, testset = S1SLC_CVDL(root='./data', polarization=None, dtype='real', split=[0.8, 0.1, 0.1], transform=None)
