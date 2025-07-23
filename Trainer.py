@@ -283,6 +283,7 @@ class Trainer:
                     print(f"Class names: {self.class_names}")
                     print(f"Number of unique labels in y_true: {num_unique_labels}")
                     print(f"Unique labels found in y_true: {unique_labels.tolist()}")
+                    print(f"y_true shape: {cpu_targets.shape}")
                     
                     if num_unique_labels > num_class_names:
                         print("\nERROR: Mismatch detected! The number of unique labels is greater than the number of class names.")
