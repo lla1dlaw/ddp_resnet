@@ -277,7 +277,7 @@ class Trainer:
                 cpu_preds = all_test_preds.cpu()
                 cpu_targets = all_test_targets.cpu()
                 test_probs = F.softmax(cpu_preds, dim=1)
-                # FIXED: Pass the raw probabilities (logits) instead of the final predictions.
+
                 run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
                         probs=test_probs.numpy(),
                         y_true=cpu_targets.numpy(),

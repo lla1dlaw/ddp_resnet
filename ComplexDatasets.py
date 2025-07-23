@@ -3,7 +3,7 @@ import os
 from math import fsum
 import numpy as np
 from pathlib import Path
-from typing import Union, Optional, Callable, Iterable
+from typing import Union, Optional, Callable, Iterable, Sequence
 from dotenv import load_dotenv
 from s3torchconnector import S3MapDataset
 import torch
@@ -67,7 +67,7 @@ def S1SLC_CVDL(
     if use_s3:
         raise NotImplementedError("S3 streaming is not configured in this version.")
     else: 
-        base_dir = "mini_S1SLC_CVDL"
+        base_dir = "S1SLC_CVDL"
         return _load_complex_dataset(
             root_dir=root, base_dir=base_dir, dtype=dtype,
             training_split=split, transform=transform,
@@ -81,7 +81,7 @@ def _load_complex_dataset(
     transform: Optional[Callable],
     target_transform: Optional[Callable],
     polarization: Optional[str] = None,
-    training_split: Optional[Iterable] = [0.8, 0.1, 0.1],
+    training_split: Optional[Sequence[float]]=[0.8, 0.1, 0.1],
 ) -> list[Subset]:
     rank = int(os.environ["LOCAL_RANK"])
     validate_args(root_dir, base_dir, polarization, training_split)
