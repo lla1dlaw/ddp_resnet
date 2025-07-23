@@ -150,6 +150,7 @@ def validate_args(root_dir: str, base_dir:str, polarization: Optional[str], trai
 
 
 if __name__ == "__main__":
+    os.environ["LOCAL_RANK"] = 0
     trainset, valset, testset = S1SLC_CVDL(root='./data', polarization=None, dtype='real', split=[0.8, 0.1, 0.1], transform=None)
     print(f"Training set length: {len(trainset)}")
     print(f"Validation set length: {len(valset)}")
