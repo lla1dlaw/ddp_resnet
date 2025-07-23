@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 from ProgressFile import ProgressFile
 import contextlib
 from tqdm import tqdm
+from datetime import datetime
 
 # --- Memory-Efficient Dataset Class ---
 class S1SLC_CVDL_Dataset(Dataset):
@@ -232,9 +233,15 @@ if __name__ == "__main__":
     if "LOCAL_RANK" not in os.environ:
         os.environ["LOCAL_RANK"] = '0'
         
+    start = datetime.now()
     print("--- Running Direct Test of ComplexDatasets.py ---")
     trainset, valset, testset = S1SLC_CVDL(root='./data', polarization=None, dtype='real', split=[0.8, 0.1, 0.1])
-    
+    end = datetime.now() 
+    diff = end - start
+    seconds = diff.total_seconds()
+    mins = seconds / 60
+
+    print(f"\nData loaded in {mins:.2f} minutes.")
     print(f"\nTraining set length: {len(trainset)}")
     print(f"Validation set length: {len(valset)}")
     print(f"Test set length: {len(testset)}")
