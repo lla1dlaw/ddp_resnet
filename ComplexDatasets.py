@@ -81,7 +81,7 @@ def _load_complex_dataset(
     transform: Optional[Callable],
     target_transform: Optional[Callable],
     polarization: Optional[str] = None,
-    training_split: Optional[Sequence[float]]=[0.8, 0.1, 0.1],
+    training_split: Sequence[float]=[0.8, 0.1, 0.1],
 ) -> list[Subset]:
     rank = int(os.environ["LOCAL_RANK"])
     validate_args(root_dir, base_dir, polarization, training_split)
