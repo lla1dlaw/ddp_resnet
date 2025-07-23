@@ -122,7 +122,7 @@ def _load_complex_dataset(
         transform=final_transform
     )
 
-    return random_split(full_dataset, training_split, generator=torch.Generator().manual_seed(42))
+    return random_split(full_dataset, training_split)
 
 def _get_iterative_stats(data: np.ndarray, batch_size: int = 256) -> tuple[np.ndarray, np.ndarray]:
     """
