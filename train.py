@@ -143,6 +143,12 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             dataset_name=(dataset_prefix if dataset_prefix is not None else dataset_name),
             polarization=polarization, batch_size=batch_size, model_type=model_type, split=split
         )
+        
+        if rank == 0:
+            print(f"Training set length: {len(train_loader)}")
+            print(f"Validation set length: {len(val_loader)}")
+            print(f"Test set length: {len(test_loader)}")
+
         root_dataset = train_loader.dataset.dataset if hasattr(train_loader.dataset, 'dataset') else train_loader.dataset
         num_classes = root_dataset.num_classes
         num_channels = root_dataset.channels
