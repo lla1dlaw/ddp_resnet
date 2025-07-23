@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 from ProgressFile import ProgressFile
 import contextlib
 
-# --- NEW: Memory-Efficient Dataset Class ---
+# --- Memory-Efficient Dataset Class ---
 class S1SLC_CVDL_Dataset(Dataset):
     """
     A memory-efficient dataset for the S1SLC_CVDL data.
@@ -28,8 +28,8 @@ class S1SLC_CVDL_Dataset(Dataset):
         self.classes = ['AG', 'FR', 'HD', 'HR', 'LD', 'IR', 'WR']
         self.num_classes = len(self.classes)
 
-        self._file_info = []
-        self._cumulative_sizes = [0]
+        self.file_info = []
+        self.cumulative_sizes = [0]
         
         path = os.path.join(self.root_dir, self.base_dir)
         city_dirs = sorted([d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))])
@@ -42,17 +42,17 @@ class S1SLC_CVDL_Dataset(Dataset):
 
             if not all(os.path.exists(p) for p in [hh_path, hv_path, labels_path]):
                 continue
-            
+
             labels_array = np.load(labels_path)
             num_samples = len(labels_array)
             
-            self._file_info.append({
+            self.file_info.append({
                 'hh': hh_path,
                 'hv': hv_path,
                 'labels': labels_path,
                 'size': num_samples
             })
-            self._cumulative_sizes.append(self._cumulative_sizes[-1] + num_samples)
+            self.cumulative_sizes.append(self.cumulative_sizes[-1] + num_samples)
 
         if self.polarization is None:
             self.channels = 4 if self.dtype == 'real' else 2
@@ -60,43 +60,37 @@ class S1SLC_CVDL_Dataset(Dataset):
             self.channels = 2 if self.dtype == 'real' else 1
 
     def __len__(self):
-        return self._cumulative_sizes[-1]
+        return self.cumulative_sizes[-1]
 
     def __getitem__(self, index):
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
 
-        # Find which city's file this index belongs to
-        city_idx = next(i for i, size in enumerate(self._cumulative_sizes) if size > index) - 1
-        local_index = index - self._cumulative_sizes[city_idx]
+        city_idx = next(i for i, size in enumerate(self.cumulative_sizes) if size > index) - 1
+        local_index = index - self.cumulative_sizes[city_idx]
         
-        info = self._file_info[city_idx]
+        info = self.file_info[city_idx]
 
-        # Use memory-mapping to avoid loading the whole file
         hh_data = np.load(info['hh'], mmap_mode='r')[local_index]
         hv_data = np.load(info['hv'], mmap_mode='r')[local_index]
         label = np.load(info['labels'], mmap_mode='r')[local_index]
 
-        # Combine polarizations
         if self.polarization == 'HH':
             sample_complex = np.expand_dims(hh_data, axis=0)
         elif self.polarization == 'HV':
             sample_complex = np.expand_dims(hv_data, axis=0)
-        else: # Both HH and HV
+        else:
             sample_complex = np.stack([hh_data, hv_data], axis=0)
 
-        # Handle real vs complex dtype
         if self.dtype == 'real':
             sample = np.concatenate([sample_complex.real, sample_complex.imag], axis=0).astype(np.float32)
         else:
             sample = sample_complex.astype(np.complex64)
         
-        # Convert to tensor and apply transforms
         sample_tensor = torch.from_numpy(sample)
         if self.transform:
             sample_tensor = self.transform(sample_tensor)
             
-        # Squeeze label and correct for 1-based indexing
         target = torch.tensor(label.squeeze() - 1, dtype=torch.long)
         
         return sample_tensor, target
@@ -110,7 +104,7 @@ class S1SLC_CVDL_Dataset(Dataset):
 class ComplexNormalize:
     def __init__(self, mean: np.ndarray, std: np.ndarray):
         self.mean = torch.from_numpy(mean).cfloat()
-        self.std = torch.from_numpy(std).cfloat().abs() # Std dev is real
+        self.std = torch.from_numpy(std).cfloat().abs()
         if self.mean.ndim == 1: self.mean = self.mean.view(-1, 1, 1)
         if self.std.ndim == 1: self.std = self.std.view(-1, 1, 1)
 
@@ -119,57 +113,106 @@ class ComplexNormalize:
             raise TypeError(f"Input tensor should be a complex tensor. Got {tensor.dtype}.")
         return tensor.sub(self.mean).div(self.std)
 
-def _get_iterative_stats_from_dataset(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 256):
-    """Calculates mean and std from the lazy-loading dataset."""
-    num_batches = (num_samples_for_stats + batch_size - 1) // batch_size
+# --- NEW: High-Performance Statistics Calculation ---
+def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
+    """
+    Calculates mean and std by reading large chunks directly from memory-mapped files.
+    This is much faster than iterating one sample at a time.
+    """
+    # Determine the number of channels from the dataset instance
+    num_channels = dataset.channels
     
     # First pass: Calculate mean
-    sum_data = 0
-    # Important: Iterate only over the training split portion for stats
-    for i in range(0, num_samples_for_stats, batch_size):
-        batch_end = min(i + batch_size, num_samples_for_stats)
-        # Create a batch by calling __getitem__ multiple times
-        batch = torch.stack([dataset[j][0] for j in range(i, batch_end)])
-        sum_data += torch.sum(batch, dim=(0, 2, 3), keepdim=True)
+    running_sum = np.zeros(num_channels, dtype=np.float64)
+    samples_processed = 0
 
-    count = num_samples_for_stats * dataset[0][0].shape[1] * dataset[0][0].shape[2]
-    mean = sum_data / count
-    
-    # Second pass: Calculate variance
-    sum_sq_diff = 0
-    for i in range(0, num_samples_for_stats, batch_size):
-        batch_end = min(i + batch_size, num_samples_for_stats)
-        batch = torch.stack([dataset[j][0] for j in range(i, batch_end)])
-        sum_sq_diff += torch.sum((batch - mean) ** 2, dim=(0, 2, 3), keepdim=True)
+    for info in dataset.file_info:
+        if samples_processed >= num_samples_for_stats:
+            break
         
-    variance = sum_sq_diff / count
-    std = torch.sqrt(variance)
+        samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
+        
+        hh_mmap = np.load(info['hh'], mmap_mode='r')
+        hv_mmap = np.load(info['hv'], mmap_mode='r')
+
+        for i in range(0, samples_to_process, batch_size):
+            end_idx = min(i + batch_size, samples_to_process)
+            
+            if dataset.polarization == 'HH':
+                batch_complex = hh_mmap[i:end_idx]
+            elif dataset.polarization == 'HV':
+                batch_complex = hv_mmap[i:end_idx]
+            else:
+                batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+
+            if dataset.dtype == 'real':
+                batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
+            else:
+                batch = batch_complex.astype(np.complex64)
+            
+            running_sum += np.sum(batch, axis=(0, 2, 3))
+        
+        samples_processed += samples_to_process
+
+    count = samples_processed * 100 * 100  # num_samples * H * W
+    mean = running_sum / count
+    mean_reshaped = mean.reshape(1, num_channels, 1, 1)
+
+    # Second pass: Calculate variance
+    running_sq_diff = np.zeros(num_channels, dtype=np.float64)
+    samples_processed = 0
+    for info in dataset.file_info:
+        if samples_processed >= num_samples_for_stats:
+            break
+            
+        samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
+
+        hh_mmap = np.load(info['hh'], mmap_mode='r')
+        hv_mmap = np.load(info['hv'], mmap_mode='r')
+
+        for i in range(0, samples_to_process, batch_size):
+            end_idx = min(i + batch_size, samples_to_process)
+            
+            if dataset.polarization == 'HH':
+                batch_complex = hh_mmap[i:end_idx]
+            elif dataset.polarization == 'HV':
+                batch_complex = hv_mmap[i:end_idx]
+            else:
+                batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+                
+            if dataset.dtype == 'real':
+                batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
+            else:
+                batch = batch_complex.astype(np.complex64)
+
+            running_sq_diff += np.sum((batch - mean_reshaped) ** 2, axis=(0, 2, 3))
+        
+        samples_processed += samples_to_process
+        
+    variance = running_sq_diff / count
+    std = np.sqrt(variance)
     
-    return mean.squeeze().numpy(), std.squeeze().numpy()
+    return mean, std
 
 def S1SLC_CVDL(
         root: Union[str, Path],
         polarization: str,
         dtype: str,
         split: Optional[Iterable] = None,
-        **kwargs # other args are ignored but needed for compatibility
+        **kwargs
 ) -> list[Subset]:
     
     _validate_args(root, "S1SLC_CVDL", polarization, split)
     
-    # 1. Create the full dataset object (loads no data yet)
     full_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
     
-    # 2. Calculate stats ONLY on the training portion
     train_size = int(split[0] * len(full_dataset))
     print(f"Calculating normalization stats from {train_size} training samples...")
-    mean, std = _get_iterative_stats_from_dataset(full_dataset, train_size)
+    # --- Use the new, faster function ---
+    mean, std = _calculate_stats_from_files(full_dataset, train_size)
     
-    # 3. Set the calculated normalization transform on the dataset
     full_dataset.set_normalization(mean, std)
     
-    # 4. Split the dataset into train, validation, and test subsets
-    # Use a generator for reproducible splits
     return random_split(full_dataset, split, generator=torch.Generator().manual_seed(42))
 
 def _validate_args(root_dir: str, base_dir:str, polarization: Optional[str], training_split: Iterable[float]) -> None:
@@ -182,7 +225,6 @@ def _validate_args(root_dir: str, base_dir:str, polarization: Optional[str], tra
         raise ValueError(f"Values in training_split must sum to 1. Got: {fsum(training_split)}")
 
 if __name__ == "__main__":
-    # Mock environment variable for direct script execution
     if "LOCAL_RANK" not in os.environ:
         os.environ["LOCAL_RANK"] = '0'
         
@@ -193,7 +235,6 @@ if __name__ == "__main__":
     print(f"Validation set length: {len(valset)}")
     print(f"Test set length: {len(testset)}")
 
-    # Verify a sample can be loaded
     sample_data, sample_label = trainset[0]
     print(f"\nSample data shape: {sample_data.shape}")
     print(f"Sample data type: {sample_data.dtype}")
