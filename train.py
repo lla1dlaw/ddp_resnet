@@ -18,12 +18,19 @@ def summarize_trials(trial_data_dir: str):
     1. summary_by_epoch.csv: Mean and std for each metric at each epoch.
     2. final_summary.csv: Mean and std of the best epoch from each trial.
     """
+    rank = os.environ["LOCAL_RANK"]
     trial_files = glob.glob(os.path.join(trial_data_dir, "trial_*.csv"))
-    if not trial_files:
+    if not trial_files and rank == 0:
         print(f"No trial data found in {trial_data_dir}. Skipping summary.")
         return
 
-    all_trials_df = [pd.read_csv(file) for file in trial_files]
+    # FIXED: Re-implemented loop to add the 'trial' column to each DataFrame
+    all_trials_df = []
+    for i, file in enumerate(trial_files):
+        df = pd.read_csv(file)
+        df['trial'] = i
+        all_trials_df.append(df)
+
     combined_df = pd.concat(all_trials_df, ignore_index=True)
 
     metric_cols = [col for col in combined_df.columns if col not in ['epoch', 'trial']]
@@ -33,20 +40,32 @@ def summarize_trials(trial_data_dir: str):
     
     epoch_summary_path = os.path.join(trial_data_dir, "summary_by_epoch.csv")
     summary_by_epoch.to_csv(epoch_summary_path)
-    print(f"\nSummary by epoch saved to {epoch_summary_path}")
+    if rank == 0:
+        print(f"\nSummary by epoch saved to {epoch_summary_path}")
 
     best_epoch_indices = combined_df.loc[combined_df.groupby('trial')['val_acc'].idxmax()]
     final_summary_stats = best_epoch_indices[metric_cols].agg(['mean', 'std'])
     
     final_summary_path = os.path.join(trial_data_dir, "final_summary.csv")
     final_summary_stats.to_csv(final_summary_path)
-    print(f"Final performance summary saved to {final_summary_path}")
-    print("\n--- Final Performance Report ---")
+    if rank == 0:
+        print(f"Final performance summary saved to {final_summary_path}")
+        print("\n--- Final Performance Report ---")
     final_acc = final_summary_stats.loc['mean', 'val_acc']
     final_acc_std = final_summary_stats.loc['std', 'val_acc']
-    print(f"Validation Accuracy: {final_acc:.4f} ± {final_acc_std:.4f}")
-    print("--------------------------------")
+    if rank == 0:
+        print(f"Validation Accuracy: {final_acc:.4f} ± {final_acc_std:.4f}")
 
+    test_metrics_file = os.path.join(trial_data_dir, "final_test_metrics.csv")
+    if os.path.exists(test_metrics_file):
+        test_df = pd.read_csv(test_metrics_file)
+        test_summary = test_df.agg(['mean', 'std'])
+        test_acc_mean = test_summary.loc['mean', 'test_acc']
+        test_acc_std = test_summary.loc['std', 'test_acc']
+        if rank == 0: 
+            print(f"Test Accuracy:       {test_acc_mean:.4f} ± {test_acc_std:.4f}")
+    if rank == 0:
+        print("--------------------------------")
 
 def ddp_setup():
     """
