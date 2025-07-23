@@ -159,7 +159,7 @@ class Trainer:
         df = pd.DataFrame([test_metrics])
         df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
 
-    def _send_wand_link(self, url: str):
+    def _send_wandb_link(self, url: str):
         load_dotenv()
         email_user = os.getenv("EMAIL_USER")
         email_pass = os.getenv("EMAIL_PASS")
