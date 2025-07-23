@@ -7,10 +7,8 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Subset, random_split
 import torchvision.transforms as transforms
-from ProgressFile import ProgressFile
-import contextlib
+import torch.distributed as dist
 from tqdm import tqdm
-from datetime import datetime
 
 # --- Memory-Efficient Dataset Class ---
 class S1SLC_CVDL_Dataset(Dataset):
@@ -115,8 +113,7 @@ class ComplexNormalize:
             raise TypeError(f"Input tensor should be a complex tensor. Got {tensor.dtype}.")
         return tensor.sub(self.mean).div(self.std)
 
-# --- NEW: High-Performance Statistics Calculation with Progress Bar ---
-def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 4096):
+def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
     """
     Calculates mean and std by reading large chunks directly from memory-mapped files.
     This is much faster than iterating one sample at a time.
@@ -209,13 +206,43 @@ def S1SLC_CVDL(
 ) -> list[Subset]:
     
     _validate_args(root, "S1SLC_CVDL", polarization, split)
+
+    # --- MODIFIED: Check if running in a distributed environment ---
+    is_distributed = dist.is_available() and dist.is_initialized()
+    rank = dist.get_rank() if is_distributed else 0
     
     full_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
     
-    train_size = int(split[0] * len(full_dataset))
-    print(f"Calculating normalization stats from {train_size} training samples...")
-    mean, std = _calculate_stats_from_files(full_dataset, train_size)
-    
+    if rank == 0:
+        train_size = int(split[0] * len(full_dataset))
+        print(f"Calculating normalization stats from {train_size} training samples on rank 0...")
+        mean, std = _calculate_stats_from_files(full_dataset, train_size)
+    else:
+        # Other ranks create empty placeholders
+        num_channels = full_dataset.channels
+        mean = np.zeros(num_channels, dtype=np.float64)
+        std = np.zeros(num_channels, dtype=np.float64)
+
+    if is_distributed:
+        # Convert to tensors for broadcasting
+        # Tensors must be on the correct device for the current rank
+        device = torch.device(f"cuda:{rank}")
+        mean_tensor = torch.from_numpy(mean).to(device)
+        std_tensor = torch.from_numpy(std).to(device)
+        
+        # Rank 0 broadcasts the calculated stats to all other ranks
+        dist.broadcast(mean_tensor, src=0)
+        dist.broadcast(std_tensor, src=0)
+        
+        # Wait for all processes to receive the stats
+        dist.barrier()
+        
+        # Other ranks update their numpy arrays from the received tensors
+        if rank != 0:
+            mean = mean_tensor.cpu().numpy()
+            std = std_tensor.cpu().numpy()
+
+    # All ranks now have the same mean and std
     full_dataset.set_normalization(mean, std)
     
     return random_split(full_dataset, split, generator=torch.Generator().manual_seed(42))
@@ -233,15 +260,9 @@ if __name__ == "__main__":
     if "LOCAL_RANK" not in os.environ:
         os.environ["LOCAL_RANK"] = '0'
         
-    start = datetime.now()
     print("--- Running Direct Test of ComplexDatasets.py ---")
     trainset, valset, testset = S1SLC_CVDL(root='./data', polarization=None, dtype='real', split=[0.8, 0.1, 0.1])
-    end = datetime.now() 
-    diff = end - start
-    seconds = diff.total_seconds()
-    mins = seconds / 60
-
-    print(f"\nData loaded in {mins:.2f} minutes.")
+    
     print(f"\nTraining set length: {len(trainset)}")
     print(f"Validation set length: {len(valset)}")
     print(f"Test set length: {len(testset)}")
