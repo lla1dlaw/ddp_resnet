@@ -32,6 +32,7 @@ def summarize_trials(trial_data_dir: str):
         all_trials_df.append(df)
 
     combined_df = pd.concat(all_trials_df, ignore_index=True)
+    print(f"Column Headers: {combined_df.columns.tolist()}")
 
     metric_cols = [col for col in combined_df.columns if col not in ['epoch', 'trial']]
 
