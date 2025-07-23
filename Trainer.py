@@ -153,16 +153,29 @@ class Trainer:
         file_path = os.path.join(self.trial_data_dir, f"trial_{self.trial}.csv")
         dataframe.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
 
-    # --- NEW: Method to save final test metrics ---
     def _save_final_test_metrics(self, test_metrics: dict):
         os.makedirs(self.trial_data_dir, exist_ok=True)
         file_path = os.path.join(self.trial_data_dir, "final_test_metrics.csv")
         df = pd.DataFrame([test_metrics])
         df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
-    # --- END NEW ---
 
-    def _send_wandb_link(self, url: str):
-        pass
+    def _send_wand_link(self, url: str):
+        load_dotenv()
+        email_user = os.getenv("EMAIL_USER")
+        email_pass = os.getenv("EMAIL_PASS")
+        if not email_user or not email_pass:
+            print("EMAIL_USER or EMAIL_PASS not found in .env file. Skipping email notification.")
+            return
+        msg = MIMEText(f"View Training stats for {self.model_name} here: {url}")
+        msg['Subject'] = f"Began Training for {self.model_name}"
+        msg['From'] = email_user
+        msg['To'] = email_user
+        try:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+                smtp_server.login(email_user, email_pass)
+                smtp_server.sendmail(email_user, email_user, msg.as_string())
+        except Exception as e:
+            print(f"Failed to send email: {e}")
 
     def train(self, max_epochs: int):
         run = None
@@ -230,10 +243,12 @@ class Trainer:
                         'Training F1-Score': train_f1, 'Validation F1-Score': val_f1,
                         'Validation Precision': val_precision, 'Validation Recall': val_recall,
                     })
-
-                    metrics = {"epoch": [epoch+1], "train loss": [train_loss], "train acc": [train_acc], "train f1": [train_f1],
-                               "val loss": [val_loss], "val acc": [val_acc], "val f1": [val_f1], 
-                               "val precision": [val_precision], "val recall": [val_recall], "epoch_duration_sec": [epoch_duration]}
+                    
+                    metrics = {
+                        "epoch": [epoch+1], "train_loss": [train_loss], "train_acc": [train_acc], "train_f1": [train_f1],
+                        "val_loss": [val_loss], "val_acc": [val_acc], "val_f1": [val_f1], 
+                        "val_precision": [val_precision], "val_recall": [val_recall], "epoch_duration_sec": [epoch_duration]
+                    }
                     self._save_dataframe(pd.DataFrame(metrics))
 
                     if epoch % self.save_every == 0:
@@ -261,47 +276,20 @@ class Trainer:
                 all_test_targets = torch.cat(gathered_test_targets)
                 cpu_preds = all_test_preds.cpu()
                 cpu_targets = all_test_targets.cpu()
-                print()
-                print(cpu_preds.shape, cpu_targets.shape)
-                print(torch.unique(cpu_targets))
-                print()
+                
+                # FIXED: Pass the raw probabilities (logits) instead of the final predictions.
+                run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
+                        probs=cpu_preds.numpy(),
+                        y_true=cpu_targets.numpy(),
+                        class_names=self.class_names)
+                })
 
-                # Calculate final test metrics
                 test_probs = F.softmax(cpu_preds, dim=1)
                 test_acc = MulticlassAccuracy(self.num_classes, top_k=1)(test_probs, cpu_targets).item()
                 test_f1 = MulticlassF1Score(self.num_classes)(test_probs, cpu_targets).item()
                 test_precision = MulticlassPrecision(self.num_classes)(test_probs, cpu_targets).item()
                 test_recall = MulticlassRecall(self.num_classes)(test_probs, cpu_targets).item()
 
-                try:
-                    unique_labels = torch.unique(cpu_targets)
-                    num_unique_labels = len(unique_labels)
-                    num_class_names = len(self.class_names)
-                    
-                    print("\n---  W&B Confusion Matrix Debug ---")
-                    print(f"Number of class names provided: {num_class_names}")
-                    print(f"Class names: {self.class_names}")
-                    print(f"Number of unique labels in y_true: {num_unique_labels}")
-                    print(f"Unique labels found in y_true: {unique_labels.tolist()}")
-                    print(f"y_true shape: {cpu_targets.shape}")
-                    
-                    if num_unique_labels > num_class_names:
-                        print("\nERROR: Mismatch detected! The number of unique labels is greater than the number of class names.")
-                        out_of_bounds = cpu_targets[cpu_targets >= num_class_names]
-                        print(f"Specifically, these out-of-bounds labels were found: {torch.unique(out_of_bounds).tolist()}")
-                    elif torch.max(unique_labels) >= num_class_names:
-                        print(f"\nERROR: Mismatch detected! Max label index ({torch.max(unique_labels)}) is out of bounds for class_names list (size {num_class_names}).")
-                    else:
-                        print("Debug check passed. Label counts and values appear to match.")
-                    print("-------------------------------------\n")
-                except Exception as e:
-                    print(f"An error occurred during the debug check: {e}")
-
-                run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
-                        probs=cpu_preds.numpy(), y_true=cpu_targets.numpy(), class_names=self.class_names)
-                })
-
-                # Save final test metrics to a file
                 test_metrics = {
                     'trial': self.trial,
                     'test_acc': test_acc,

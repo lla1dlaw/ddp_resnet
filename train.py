@@ -35,7 +35,7 @@ def summarize_trials(trial_data_dir: str):
     summary_by_epoch.to_csv(epoch_summary_path)
     print(f"\nSummary by epoch saved to {epoch_summary_path}")
 
-    best_epoch_indices = combined_df.loc[combined_df.groupby(combined_df.index // len(combined_df) * len(trial_files))['val_acc'].idxmax()]
+    best_epoch_indices = combined_df.loc[combined_df.groupby('trial')['val_acc'].idxmax()]
     final_summary_stats = best_epoch_indices[metric_cols].agg(['mean', 'std'])
     
     final_summary_path = os.path.join(trial_data_dir, "final_summary.csv")
