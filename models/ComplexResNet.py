@@ -384,9 +384,9 @@ class ComplexResNet(nn.Module):
         #configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
         # compressed resnet
         configs = {
-            'WS': {'filters': 12, 'blocks_per_stage': [8, 8, 8]},
-            'DN': {'filters': 10, 'blocks_per_stage': [12, 11, 12]},
-            'IB': {'filters': 11, 'blocks_per_stage': [10, 9, 10]}
+            'WS': {'filters': 12, 'blocks_per_stage': [4, 4, 4]},
+            'DN': {'filters': 10, 'blocks_per_stage': [6, 6, 6]},
+            'IB': {'filters': 11, 'blocks_per_stage': [5, 5, 5]},
         }
 
         config = configs[architecture_type]
