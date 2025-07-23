@@ -82,7 +82,7 @@ def _load_complex_dataset(
     training_split: Sequence[float]=[0.8, 0.1, 0.1],
 ) -> list[Subset]:
     rank = int(os.environ["LOCAL_RANK"])
-    validate_args(root_dir, base_dir, polarization, training_split)
+    _validate_args(root_dir, base_dir, polarization, training_split)
 
     HH_data, HV_data, label_data = [], [], []
     path = os.path.join(root_dir, base_dir)
@@ -110,11 +110,11 @@ def _load_complex_dataset(
 
     if dtype == 'real':
         train_stats_data = np.concatenate((train_inputs_for_stats.real, train_inputs_for_stats.imag), axis=1)
-        mean, std = np.mean(train_stats_data, axis=(0, 2, 3)), np.std(train_stats_data, axis=(0, 2, 3))
+        mean, std = _get_iterative_stats(train_stats_data)
         final_transform = transforms.Normalize(mean, std)
         inputs = np.concatenate((inputs.real, inputs.imag), axis=1)
     elif dtype == 'complex':
-        mean, std = np.mean(train_inputs_for_stats, axis=(0, 2, 3)), np.std(train_inputs_for_stats, axis=(0, 2, 3))
+        mean, std = _get_iterative_stats(train_inputs_for_stats)
         final_transform = ComplexNormalize(mean, std)
 
     full_dataset = CustomDataset(
@@ -123,6 +123,36 @@ def _load_complex_dataset(
     )
 
     return random_split(full_dataset, training_split, generator=torch.Generator().manual_seed(42))
+
+def _get_iterative_stats(data: np.ndarray, batch_size: int = 256) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Calculates mean and std of a large array iteratively to avoid memory errors.
+    """
+    num_samples = data.shape[0]
+    num_batches = (num_samples + batch_size - 1) // batch_size
+
+    # First pass: Calculate mean
+    sum_data = 0
+    for i in range(num_batches):
+        batch = data[i * batch_size:(i + 1) * batch_size]
+        sum_data += np.sum(batch, axis=(0, 2, 3), keepdims=True)
+
+    # Shape of data is (N, C, H, W). We sum over N, H, W, leaving C.
+    # Total elements per channel is N * H * W
+    count = num_samples * data.shape[2] * data.shape[3]
+    mean = sum_data / count
+
+    # Second pass: Calculate variance and std
+    sum_sq_diff = 0
+    for i in range(num_batches):
+        batch = data[i * batch_size:(i + 1) * batch_size]
+        sum_sq_diff += np.sum((batch - mean) ** 2, axis=(0, 2, 3), keepdims=True)
+
+    variance = sum_sq_diff / count
+    std = np.sqrt(variance)
+
+    # Squeeze out the H and W dimensions (which are 1) to get shape (C,)
+    return mean.squeeze(), std.squeeze()
 
 def shuffle_arrays(*arrays):
     assert all(len(arr) == len(arrays[0]) for arr in arrays)
@@ -139,7 +169,7 @@ def _load_np_from_file(path: str, rank: int) -> np.array:
             array = array.astype(np.complex64)
     return array
 
-def validate_args(root_dir: str, base_dir:str, polarization: Optional[str], training_split: Iterable[float]) -> None:
+def _validate_args(root_dir: str, base_dir:str, polarization: Optional[str], training_split: Iterable[float]) -> None:
     path = os.path.join(root_dir, base_dir)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Could not find directory: {path}")
