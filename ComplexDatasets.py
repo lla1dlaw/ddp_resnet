@@ -102,7 +102,7 @@ def _load_complex_dataset(
         inputs = np.concatenate((HH_array, HV_array), axis=1)
     
     labels = np.array(label_data).squeeze().astype(np.int64) - 1
-    shuffle_arrays(inputs, labels)
+    _shuffle_arrays(inputs, labels)
 
     num_samples = len(inputs)
     train_size = int(training_split[0] * num_samples)
@@ -154,7 +154,7 @@ def _get_iterative_stats(data: np.ndarray, batch_size: int = 256) -> tuple[np.nd
     # Squeeze out the H and W dimensions (which are 1) to get shape (C,)
     return mean.squeeze(), std.squeeze()
 
-def shuffle_arrays(*arrays):
+def _shuffle_arrays(*arrays):
     assert all(len(arr) == len(arrays[0]) for arr in arrays)
     seed = np.random.randint(2**32)
     for arr in arrays:
