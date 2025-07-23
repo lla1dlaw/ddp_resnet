@@ -115,7 +115,7 @@ class ComplexNormalize:
         return tensor.sub(self.mean).div(self.std)
 
 # --- NEW: High-Performance Statistics Calculation with Progress Bar ---
-def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
+def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 4096):
     """
     Calculates mean and std by reading large chunks directly from memory-mapped files.
     This is much faster than iterating one sample at a time.
