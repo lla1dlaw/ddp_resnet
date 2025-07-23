@@ -42,9 +42,9 @@ class S1SLC_CVDL_Dataset(Dataset):
 
             if not all(os.path.exists(p) for p in [hh_path, hv_path, labels_path]):
                 continue
-
-            with np.load(labels_path) as f:
-                num_samples = len(f)
+            
+            labels_array = np.load(labels_path)
+            num_samples = len(labels_array)
             
             self._file_info.append({
                 'hh': hh_path,
