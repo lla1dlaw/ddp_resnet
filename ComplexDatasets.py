@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, Subset, random_split
 import torchvision.transforms as transforms
 from ProgressFile import ProgressFile
 import contextlib
+from tqdm import tqdm
 
 # --- Memory-Efficient Dataset Class ---
 class S1SLC_CVDL_Dataset(Dataset):
@@ -113,82 +114,86 @@ class ComplexNormalize:
             raise TypeError(f"Input tensor should be a complex tensor. Got {tensor.dtype}.")
         return tensor.sub(self.mean).div(self.std)
 
-# --- NEW: High-Performance Statistics Calculation ---
+# --- NEW: High-Performance Statistics Calculation with Progress Bar ---
 def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
     """
     Calculates mean and std by reading large chunks directly from memory-mapped files.
     This is much faster than iterating one sample at a time.
     """
-    # Determine the number of channels from the dataset instance
     num_channels = dataset.channels
     
     # First pass: Calculate mean
     running_sum = np.zeros(num_channels, dtype=np.float64)
     samples_processed = 0
-
-    for info in dataset.file_info:
-        if samples_processed >= num_samples_for_stats:
-            break
-        
-        samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
-        
-        hh_mmap = np.load(info['hh'], mmap_mode='r')
-        hv_mmap = np.load(info['hv'], mmap_mode='r')
-
-        for i in range(0, samples_to_process, batch_size):
-            end_idx = min(i + batch_size, samples_to_process)
+    
+    with tqdm(total=num_samples_for_stats, desc="Calculating Mean", unit="sample") as pbar:
+        for info in dataset.file_info:
+            if samples_processed >= num_samples_for_stats:
+                break
             
-            if dataset.polarization == 'HH':
-                batch_complex = hh_mmap[i:end_idx]
-            elif dataset.polarization == 'HV':
-                batch_complex = hv_mmap[i:end_idx]
-            else:
-                batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
-
-            if dataset.dtype == 'real':
-                batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
-            else:
-                batch = batch_complex.astype(np.complex64)
+            samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
             
-            running_sum += np.sum(batch, axis=(0, 2, 3))
-        
-        samples_processed += samples_to_process
+            hh_mmap = np.load(info['hh'], mmap_mode='r')
+            hv_mmap = np.load(info['hv'], mmap_mode='r')
 
-    count = samples_processed * 100 * 100  # num_samples * H * W
+            for i in range(0, samples_to_process, batch_size):
+                end_idx = min(i + batch_size, samples_to_process)
+                
+                if dataset.polarization == 'HH':
+                    batch_complex = hh_mmap[i:end_idx]
+                elif dataset.polarization == 'HV':
+                    batch_complex = hv_mmap[i:end_idx]
+                else:
+                    batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+
+                if dataset.dtype == 'real':
+                    batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
+                else:
+                    batch = batch_complex.astype(np.complex64)
+                
+                running_sum += np.sum(batch, axis=(0, 2, 3))
+                pbar.update(end_idx - i)
+            
+            samples_processed += samples_to_process
+
+    count = samples_processed * 100 * 100
     mean = running_sum / count
     mean_reshaped = mean.reshape(1, num_channels, 1, 1)
 
     # Second pass: Calculate variance
     running_sq_diff = np.zeros(num_channels, dtype=np.float64)
     samples_processed = 0
-    for info in dataset.file_info:
-        if samples_processed >= num_samples_for_stats:
-            break
-            
-        samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
-
-        hh_mmap = np.load(info['hh'], mmap_mode='r')
-        hv_mmap = np.load(info['hv'], mmap_mode='r')
-
-        for i in range(0, samples_to_process, batch_size):
-            end_idx = min(i + batch_size, samples_to_process)
-            
-            if dataset.polarization == 'HH':
-                batch_complex = hh_mmap[i:end_idx]
-            elif dataset.polarization == 'HV':
-                batch_complex = hv_mmap[i:end_idx]
-            else:
-                batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+    
+    with tqdm(total=num_samples_for_stats, desc="Calculating Std Dev", unit="sample") as pbar:
+        for info in dataset.file_info:
+            if samples_processed >= num_samples_for_stats:
+                break
                 
-            if dataset.dtype == 'real':
-                batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
-            else:
-                batch = batch_complex.astype(np.complex64)
+            samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
 
-            running_sq_diff += np.sum((batch - mean_reshaped) ** 2, axis=(0, 2, 3))
-        
-        samples_processed += samples_to_process
-        
+            hh_mmap = np.load(info['hh'], mmap_mode='r')
+            hv_mmap = np.load(info['hv'], mmap_mode='r')
+
+            for i in range(0, samples_to_process, batch_size):
+                end_idx = min(i + batch_size, samples_to_process)
+                
+                if dataset.polarization == 'HH':
+                    batch_complex = hh_mmap[i:end_idx]
+                elif dataset.polarization == 'HV':
+                    batch_complex = hv_mmap[i:end_idx]
+                else:
+                    batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+                    
+                if dataset.dtype == 'real':
+                    batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
+                else:
+                    batch = batch_complex.astype(np.complex64)
+
+                running_sq_diff += np.sum((batch - mean_reshaped) ** 2, axis=(0, 2, 3))
+                pbar.update(end_idx - i)
+            
+            samples_processed += samples_to_process
+            
     variance = running_sq_diff / count
     std = np.sqrt(variance)
     
@@ -208,7 +213,6 @@ def S1SLC_CVDL(
     
     train_size = int(split[0] * len(full_dataset))
     print(f"Calculating normalization stats from {train_size} training samples...")
-    # --- Use the new, faster function ---
     mean, std = _calculate_stats_from_files(full_dataset, train_size)
     
     full_dataset.set_normalization(mean, std)
