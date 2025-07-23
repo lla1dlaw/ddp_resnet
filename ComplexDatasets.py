@@ -113,86 +113,108 @@ class ComplexNormalize:
             raise TypeError(f"Input tensor should be a complex tensor. Got {tensor.dtype}.")
         return tensor.sub(self.mean).div(self.std)
 
-def _calculate_stats_from_files(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
+def _calculate_stats_parallel(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats: int, batch_size: int = 1024):
     """
-    Calculates mean and std by reading large chunks directly from memory-mapped files.
-    This is much faster than iterating one sample at a time.
+    Calculates mean and std in parallel across all DDP ranks.
+    Only rank 0 will display a progress bar to keep the terminal clean.
     """
+    is_distributed = dist.is_available() and dist.is_initialized()
+    rank = dist.get_rank() if is_distributed else 0
+    world_size = dist.get_world_size() if is_distributed else 1
+    
     num_channels = dataset.channels
     
-    # First pass: Calculate mean
-    running_sum = np.zeros(num_channels, dtype=np.float64)
-    samples_processed = 0
+    samples_per_rank = int(np.ceil(num_samples_for_stats / world_size))
+    start_idx = rank * samples_per_rank
+    end_idx = min(start_idx + samples_per_rank, num_samples_for_stats)
     
-    with tqdm(total=num_samples_for_stats, desc="Calculating Mean", unit="sample") as pbar:
+    local_samples_to_process = end_idx - start_idx
+    
+    local_sum = np.zeros(num_channels, dtype=np.float64)
+    
+    # --- MODIFIED: TQDM progress bar only shows on rank 0 ---
+    with tqdm(total=local_samples_to_process, desc="Calculating Mean (Rank 0)", unit="sample", disable=(rank != 0)) as pbar:
+        global_samples_processed = 0
         for info in dataset.file_info:
-            if samples_processed >= num_samples_for_stats:
+            file_start_global = global_samples_processed
+            file_end_global = file_start_global + info['size']
+            
+            overlap_start = max(start_idx, file_start_global)
+            overlap_end = min(end_idx, file_end_global)
+
+            if overlap_start < overlap_end:
+                local_start = overlap_start - file_start_global
+                local_end = overlap_end - file_start_global
+                
+                hh_mmap = np.load(info['hh'], mmap_mode='r')
+                hv_mmap = np.load(info['hv'], mmap_mode='r')
+
+                for i in range(local_start, local_end, batch_size):
+                    batch_end_local = min(i + batch_size, local_end)
+                    
+                    if dataset.polarization == 'HH': batch_complex = hh_mmap[i:batch_end_local]
+                    elif dataset.polarization == 'HV': batch_complex = hv_mmap[i:batch_end_local]
+                    else: batch_complex = np.stack([hh_mmap[i:batch_end_local], hv_mmap[i:batch_end_local]], axis=1)
+
+                    if dataset.dtype == 'real': batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1)
+                    else: batch = batch_complex
+                    
+                    local_sum += np.sum(batch, axis=(0, 2, 3))
+                    if rank == 0: pbar.update(batch_end_local - i)
+
+            global_samples_processed += info['size']
+            if global_samples_processed >= end_idx:
                 break
-            
-            samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
-            
-            hh_mmap = np.load(info['hh'], mmap_mode='r')
-            hv_mmap = np.load(info['hv'], mmap_mode='r')
 
-            for i in range(0, samples_to_process, batch_size):
-                end_idx = min(i + batch_size, samples_to_process)
-                
-                if dataset.polarization == 'HH':
-                    batch_complex = hh_mmap[i:end_idx]
-                elif dataset.polarization == 'HV':
-                    batch_complex = hv_mmap[i:end_idx]
-                else:
-                    batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
-
-                if dataset.dtype == 'real':
-                    batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
-                else:
-                    batch = batch_complex.astype(np.complex64)
-                
-                running_sum += np.sum(batch, axis=(0, 2, 3))
-                pbar.update(end_idx - i)
-            
-            samples_processed += samples_to_process
-
-    count = samples_processed * 100 * 100
-    mean = running_sum / count
+    global_sum_tensor = torch.from_numpy(local_sum).to(f"cuda:{rank}")
+    if is_distributed:
+        dist.all_reduce(global_sum_tensor, op=dist.ReduceOp.SUM)
+    
+    count = num_samples_for_stats * 100 * 100
+    mean = (global_sum_tensor / count).cpu().numpy()
     mean_reshaped = mean.reshape(1, num_channels, 1, 1)
 
-    # Second pass: Calculate variance
-    running_sq_diff = np.zeros(num_channels, dtype=np.float64)
-    samples_processed = 0
+    local_sq_diff = np.zeros(num_channels, dtype=np.float64)
     
-    with tqdm(total=num_samples_for_stats, desc="Calculating Std Dev", unit="sample") as pbar:
+    # --- MODIFIED: TQDM progress bar only shows on rank 0 ---
+    with tqdm(total=local_samples_to_process, desc="Calculating Std Dev (Rank 0)", unit="sample", disable=(rank != 0)) as pbar:
+        global_samples_processed = 0
         for info in dataset.file_info:
-            if samples_processed >= num_samples_for_stats:
-                break
-                
-            samples_to_process = min(info['size'], num_samples_for_stats - samples_processed)
+            file_start_global = global_samples_processed
+            file_end_global = file_start_global + info['size']
 
-            hh_mmap = np.load(info['hh'], mmap_mode='r')
-            hv_mmap = np.load(info['hv'], mmap_mode='r')
+            overlap_start = max(start_idx, file_start_global)
+            overlap_end = min(end_idx, file_end_global)
 
-            for i in range(0, samples_to_process, batch_size):
-                end_idx = min(i + batch_size, samples_to_process)
-                
-                if dataset.polarization == 'HH':
-                    batch_complex = hh_mmap[i:end_idx]
-                elif dataset.polarization == 'HV':
-                    batch_complex = hv_mmap[i:end_idx]
-                else:
-                    batch_complex = np.stack([hh_mmap[i:end_idx], hv_mmap[i:end_idx]], axis=1)
+            if overlap_start < overlap_end:
+                local_start = overlap_start - file_start_global
+                local_end = overlap_end - file_start_global
+
+                hh_mmap = np.load(info['hh'], mmap_mode='r')
+                hv_mmap = np.load(info['hv'], mmap_mode='r')
+
+                for i in range(local_start, local_end, batch_size):
+                    batch_end_local = min(i + batch_size, local_end)
                     
-                if dataset.dtype == 'real':
-                    batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1).astype(np.float32)
-                else:
-                    batch = batch_complex.astype(np.complex64)
+                    if dataset.polarization == 'HH': batch_complex = hh_mmap[i:batch_end_local]
+                    elif dataset.polarization == 'HV': batch_complex = hv_mmap[i:batch_end_local]
+                    else: batch_complex = np.stack([hh_mmap[i:batch_end_local], hv_mmap[i:batch_end_local]], axis=1)
+                        
+                    if dataset.dtype == 'real': batch = np.concatenate([batch_complex.real, batch_complex.imag], axis=1)
+                    else: batch = batch_complex
 
-                running_sq_diff += np.sum((batch - mean_reshaped) ** 2, axis=(0, 2, 3))
-                pbar.update(end_idx - i)
+                    local_sq_diff += np.sum((batch - mean_reshaped) ** 2, axis=(0, 2, 3))
+                    if rank == 0: pbar.update(batch_end_local - i)
             
-            samples_processed += samples_to_process
-            
-    variance = running_sq_diff / count
+            global_samples_processed += info['size']
+            if global_samples_processed >= end_idx:
+                break
+
+    global_sq_diff_tensor = torch.from_numpy(local_sq_diff).to(f"cuda:{rank}")
+    if is_distributed:
+        dist.all_reduce(global_sq_diff_tensor, op=dist.ReduceOp.SUM)
+        
+    variance = global_sq_diff_tensor.cpu().numpy() / count
     std = np.sqrt(variance)
     
     return mean, std
@@ -206,45 +228,21 @@ def S1SLC_CVDL(
 ) -> list[Subset]:
     
     _validate_args(root, "S1SLC_CVDL", polarization, split)
-
-    # --- MODIFIED: Check if running in a distributed environment ---
-    is_distributed = dist.is_available() and dist.is_initialized()
-    rank = dist.get_rank() if is_distributed else 0
     
     full_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
     
-    if rank == 0:
-        train_size = int(split[0] * len(full_dataset))
-        print(f"Calculating normalization stats from {train_size} training samples on rank 0...")
-        mean, std = _calculate_stats_from_files(full_dataset, train_size)
-    else:
-        # Other ranks create empty placeholders
-        num_channels = full_dataset.channels
-        mean = np.zeros(num_channels, dtype=np.float64)
-        std = np.zeros(num_channels, dtype=np.float64)
-
-    if is_distributed:
-        # Convert to tensors for broadcasting
-        # Tensors must be on the correct device for the current rank
-        device = torch.device(f"cuda:{rank}")
-        mean_tensor = torch.from_numpy(mean).to(device)
-        std_tensor = torch.from_numpy(std).to(device)
-        
-        # Rank 0 broadcasts the calculated stats to all other ranks
-        dist.broadcast(mean_tensor, src=0)
-        dist.broadcast(std_tensor, src=0)
-        
-        # Wait for all processes to receive the stats
-        dist.barrier()
-        
-        # Other ranks update their numpy arrays from the received tensors
-        if rank != 0:
-            mean = mean_tensor.cpu().numpy()
-            std = std_tensor.cpu().numpy()
-
-    # All ranks now have the same mean and std
+    train_size = int(split[0] * len(full_dataset))
+    
+    if dist.is_available() and dist.is_initialized() and dist.get_rank() == 0:
+        print(f"Calculating normalization stats in parallel across {dist.get_world_size()} ranks...")
+    
+    mean, std = _calculate_stats_parallel(full_dataset, train_size)
+    
     full_dataset.set_normalization(mean, std)
     
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+
     return random_split(full_dataset, split, generator=torch.Generator().manual_seed(42))
 
 def _validate_args(root_dir: str, base_dir:str, polarization: Optional[str], training_split: Iterable[float]) -> None:
