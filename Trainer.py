@@ -259,8 +259,8 @@ class Trainer:
                 print(f"\nEvaluating best model from trial {self.trial} on the complete test set...")
                 all_test_preds = torch.cat(gathered_test_preds)
                 all_test_targets = torch.cat(gathered_test_targets)
-                cpu_preds = all_test_preds.cpu().numpy()
-                cpu_targets = all_test_targets.cpu().numpy()
+                cpu_preds = all_test_preds.cpu()
+                cpu_targets = all_test_targets.cpu()
                 print()
                 print(cpu_preds.shape, cpu_targets.shape)
                 print(torch.unique(cpu_targets))
@@ -298,7 +298,7 @@ class Trainer:
                     print(f"An error occurred during the debug check: {e}")
 
                 run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
-                        probs=cpu_preds, y_true=cpu_targets, class_names=self.class_names)
+                        probs=cpu_preds.numpy(), y_true=cpu_targets.numpy(), class_names=self.class_names)
                 })
 
                 # Save final test metrics to a file
