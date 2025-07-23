@@ -276,15 +276,14 @@ class Trainer:
                 all_test_targets = torch.cat(gathered_test_targets)
                 cpu_preds = all_test_preds.cpu()
                 cpu_targets = all_test_targets.cpu()
-                
+                test_probs = F.softmax(cpu_preds, dim=1)
                 # FIXED: Pass the raw probabilities (logits) instead of the final predictions.
                 run.log({ "test_confusion_matrix": wandb.plot.confusion_matrix(
-                        probs=cpu_preds.numpy(),
+                        probs=test_probs.numpy(),
                         y_true=cpu_targets.numpy(),
                         class_names=self.class_names)
                 })
 
-                test_probs = F.softmax(cpu_preds, dim=1)
                 test_acc = MulticlassAccuracy(self.num_classes, top_k=1)(test_probs, cpu_targets).item()
                 test_f1 = MulticlassF1Score(self.num_classes)(test_probs, cpu_targets).item()
                 test_precision = MulticlassPrecision(self.num_classes)(test_probs, cpu_targets).item()
