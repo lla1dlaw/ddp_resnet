@@ -130,7 +130,8 @@ def _calculate_stats_parallel(dataset: S1SLC_CVDL_Dataset, num_samples_for_stats
     
     local_samples_to_process = end_idx - start_idx
     
-    local_sum = np.zeros(num_channels, dtype=np.float64)
+    accumulator_dtype = np.complex128 if dataset.dtype == 'complex' else np.float64
+    local_sum = np.zeros(num_channels, dtype=accumulator_dtype)
     
     # --- MODIFIED: TQDM progress bar only shows on rank 0 ---
     with tqdm(total=local_samples_to_process, desc="Calculating Mean (Rank 0)", unit="sample", disable=(rank != 0)) as pbar:
