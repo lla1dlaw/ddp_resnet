@@ -84,9 +84,9 @@ class RealResNet(nn.Module):
         #configs = {'WS': {'filters': 18, 'blocks_per_stage': [14, 14, 14]}, 'DN': {'filters': 14, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 16, 'blocks_per_stage': [18, 18, 18]}}
         # compressed resnet
         configs = {
-            'WS': {'filters': 13, 'blocks_per_stage': [2, 2, 2]},
-            'DN': {'filters': 10, 'blocks_per_stage': [4, 4, 4]},
-            'IB': {'filters': 11, 'blocks_per_stage': [3, 3, 3]}
+            'WS': {'filters': 14, 'blocks_per_stage': [2, 2, 2]},
+            'DN': {'filters': 11, 'blocks_per_stage': [4, 4, 4]},
+            'IB': {'filters': 13, 'blocks_per_stage': [3, 3, 3]}
         }
 
         config = configs[architecture_type]
