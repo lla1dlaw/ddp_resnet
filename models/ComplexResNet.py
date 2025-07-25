@@ -349,12 +349,11 @@ class ComplexBatchNorm2d(nn.Module):
         V_ri = cov_to_use[:, 2].view(1, self.num_features, 1, 1)
         
         s = V_rr * V_ii - V_ri ** 2
-        t = torch.sqrt(s.clamp(min=self.eps)) # clamp to avoid negative square roots
-        inv_t = 1.0 / t
+        t = s.clamp(min=self.eps).rsqrt()
         
-        Rrr = V_ii * inv_t
-        Rii = V_rr * inv_t
-        Rri = -V_ri * inv_t
+        Rrr = V_ii * t
+        Rii = V_rr * t
+        Rri = -V_ri * t
 
         real_part = Rrr * centered_x.real + Rri * centered_x.imag
         imag_part = Rri * centered_x.real + Rii * centered_x.imag
