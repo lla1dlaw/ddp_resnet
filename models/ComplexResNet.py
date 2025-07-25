@@ -109,56 +109,83 @@ def abs_softmax(input: torch.tensor) -> torch.tensor:
 
 
 class ModReLU(nn.Module):
-    def __init__(self, bias: float=1, dtype=torch.complex64) -> None:
+    def __init__(self, bias: float = 1.0, inplace: bool = False):
         """ModReLU module. 
 
-        Performs ModReLU as a module. Can be used in a module list like traditional ReLU.
-
         Args:
-            bias: Learnable bias value added to the activation.
-            dtype: The expected datatype of inputs. Defaults to torch.complex64. 
+            bias: Initial value for the learnable bias.
+            inplace: Whether to perform the operation in-place. Defaults to False.
         """
         super(ModReLU, self).__init__()
-        self.bias = nn.Parameter(torch.tensor(bias, dtype=dtype)) # make bias learnable
+        # The bias is added to the magnitude, so it must be a real-valued parameter
+        self.bias = nn.Parameter(torch.tensor(bias, dtype=torch.float32))
+        self.inplace = inplace
 
     def forward(self, input):
+        if self.inplace:
+            magnitude = input.abs()
+            # The scaling factor is broadcastable to the complex tensor
+            scaling_factor = F.relu(magnitude + self.bias) / (magnitude + 1e-8)
+            input.real.mul_(scaling_factor)
+            input.imag.mul_(scaling_factor)
+            return input
         return modrelu(input, self.bias)
 
 
 class ZReLU(nn.Module):
-    def __init__(self):
+    def __init__(self, inplace: bool = False):
         """zReLU module. 
 
-        Performs zReLU activation as a module. Can be used in a module list like tractitional ReLU.
+        Args:
+            inplace: Whether to perform the operation in-place. Defaults to False.
         """
         super(ZReLU, self).__init__()
+        self.inplace = inplace
     
     def forward(self, input):
+        if self.inplace:
+            mask = (input.real >= 0) & (input.imag >= 0)
+            input.mul_(mask.to(input.dtype))
+            return input
         return zrelu(input)
 
 
 class ComplexCardioid(nn.Module):
-    def __init__(self):
+    def __init__(self, inplace: bool = False):
         """ComplexCardioid module. 
 
-        Performs complex cardioid activation as a module. Can be used in a module list like traditional ReLU.
+        Args:
+            inplace: Whether to perform the operation in-place. Defaults to False.
         """
         super(ComplexCardioid, self).__init__()
+        self.inplace = inplace
 
     def forward(self, input):
+        if self.inplace:
+            angle = torch.angle(input)
+            scaling_factor = 0.5 * (1 + torch.cos(angle))
+            input.real.mul_(scaling_factor)
+            input.imag.mul_(scaling_factor)
+            return input
         return complex_cardioid(input)
 
 
 class CReLU(nn.Module):
-    def __init__(self):
+    def __init__(self, inplace: bool = True):
         """Complex ReLU module. 
 
         Performs complex ReLU activation as a module. Can be used in a module list like traditional ReLU.
         """
         super(CReLU, self).__init__()
+        self.inplace = inplace
 
     def forward(self, input):
-        return crelu(input)
+        if self.inplace:
+            F.relu(input.real, inplace=True)
+            F.relu(input.imag, inplace=True)
+            return input
+        else:
+            return crelu(input)
 
 
 class Abs(nn.Module):
@@ -437,12 +464,15 @@ class ComplexResNet(nn.Module):
                 pooled_real = F.avg_pool2d(x.real, kernel_size=2, stride=2)
                 pooled_imag = F.avg_pool2d(x.imag, kernel_size=2, stride=2)
                 x = torch.complex(pooled_real, pooled_imag)
-        pooled_real = self.avgpool(x.real)
-        pooled_imag = self.avgpool(x.imag)
-        x = torch.complex(pooled_real, pooled_imag)
-        x = torch.flatten(x, 1)
-        # converts tensor to a flattened real_valued tensor containing both the phase and magnitude values
-        x = torch.cat([x.abs(), x.angle()], dim=1)
+        x_real = self.avgpool(x.real)
+        x_imag = self.avgpool(x.imag)
+        x_real_flat = torch.flatten(x_real, 1)
+        x_imag_flat = torch.flatten(x_imag, 1)
+        # Calculate magnitude and phase directly for efficiency and stability
+        magnitude = torch.hypot(x_real_flat, x_imag_flat)
+        phase = torch.atan2(x_imag_flat, x_real_flat)
+        # Concatenate and pass to the final layer
+        x = torch.cat([magnitude, phase], dim=1)
         logits = self.fc(x)
         return logits
 
