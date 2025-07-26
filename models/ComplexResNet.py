@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
-from complexPyTorch.complexLayers import ComplexLinear
+from complexPyTorch.complexLayers import  ComplexConv2d, ComplexLinear
 
 __all__ = ['ComplexResNet']
 
