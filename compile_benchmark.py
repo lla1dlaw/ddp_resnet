@@ -25,7 +25,7 @@ def benchmark(model, input_tensor, model_name, num_iterations=100, warmup_iterat
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
     
     # Create a dummy target tensor
-    target = torch.randint(0, 1000, (input_tensor.size(0),)).to(input_tensor.device)
+    target = torch.randint(0, 7, (input_tensor.size(0),)).to(input_tensor.device)
 
     # Warmup phase
     # This is important to exclude one-time setup costs (like CUDA context creation)
