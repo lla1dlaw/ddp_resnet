@@ -68,7 +68,7 @@ def run_benchmark():
     # --- Configuration ---
     BATCH_SIZE = 64
     IMG_SIZE = 224
-    NUM_CLASSES = 1000
+    NUM_CLASSES = 7
     
     # Check for PyTorch version and CUDA availability
     print(f"PyTorch Version: {torch.__version__}")
