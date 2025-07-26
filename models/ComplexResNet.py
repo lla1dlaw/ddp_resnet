@@ -171,7 +171,7 @@ class ComplexCardioid(nn.Module):
 
 
 class CReLU(nn.Module):
-    def __init__(self, inplace: bool = True):
+    def __init__(self, inplace: bool = False):
         """Complex ReLU module. 
 
         Performs complex ReLU activation as a module. Can be used in a module list like traditional ReLU.
