@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision.models as models
 import time
 import warnings
+from models import ComplexResNet, RealResNet
 
 def benchmark(model, input_tensor, model_name, num_iterations=100, warmup_iterations=10):
     """
@@ -83,12 +84,12 @@ def run_benchmark():
     # --- Model and Data Setup ---
     # Create random input data to simulate a batch of images
     # The model expects a 4D tensor: (batch_size, channels, height, width)
-    random_data = torch.randn(BATCH_SIZE, 3, IMG_SIZE, IMG_SIZE).to(device)
+    random_data = torch.randn(BATCH_SIZE, 3, IMG_SIZE, IMG_SIZE, dtype=torch.complex64).to(device)
 
     # Instantiate two identical models
     # We use pretrained=False because we don't need the actual weights for a runtime benchmark
-    non_compiled_model = models.resnet50(weights=None).to(device)
-    compiled_model = models.resnet50(weights=None).to(device)
+    non_compiled_model = ComplexResNet('DN', 'crelu', 4, 7).to(device)
+    compiled_model = ComplexResNet('DN', 'crelu', 4, 7).to(device)
     
     # Set models to training mode
     non_compiled_model.train()
