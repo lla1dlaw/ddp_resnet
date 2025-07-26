@@ -7,7 +7,6 @@ Purpose: A complex valued resnet based on the model presetned in "Deep Complex N
 import math
 import torch
 import torch.nn as nn
-from torch.nn import Conv2d
 import torch.nn.functional as F
 from torch.nn import Parameter
 from complexPyTorch.complexLayers import ComplexLinear
@@ -222,7 +221,7 @@ def init_weights(m):
     Initializes real convolutions with scaled orthogonal matrices and
     complex convolutions with scaled unitary matrices.
     """
-    if isinstance(m, Conv2d):
+    if isinstance(m, ComplexConv2d):
         # Unitary initialization for complex convolutions using SVD
         real_conv = m.conv_r
         fan_in = real_conv.in_channels * real_conv.kernel_size[0] * real_conv.kernel_size[1]
@@ -273,10 +272,10 @@ class ComplexResidualBlock(nn.Module):
         super(ComplexResidualBlock, self).__init__()
         self.bn1 = ComplexBatchNorm2d(channels)
         self.relu1 = activation_fn_class()
-        self.conv1 = Conv2d(channels, channels, kernel_size=3, padding=1, bias=False, dtype=torch.complex64)
+        self.conv1 = ComplexConv2d(channels, channels, kernel_size=3, padding=1, bias=False)
         self.bn2 = ComplexBatchNorm2d(channels)
         self.relu2 = activation_fn_class()
-        self.conv2 = Conv2d(channels, channels, kernel_size=3, padding=1, bias=False, dtype=torch.complex64)
+        self.conv2 = ComplexConv2d(channels, channels, kernel_size=3, padding=1, bias=False)
     def forward(self, x):
         identity = x
         out = self.bn1(x)
@@ -425,7 +424,7 @@ class ComplexResNet(nn.Module):
         if self.activation_fn_class is None:
             raise ValueError(f"Unknown activation function: {activation_function}")
         self.initial_complex_op = nn.Sequential(
-            Conv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False, dtype=torch.complex64),
+            ComplexConv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
             ComplexBatchNorm2d(self.initial_filters),
             self.activation_fn_class()
         )
@@ -435,7 +434,7 @@ class ComplexResNet(nn.Module):
         for i, num_blocks in enumerate(self.blocks_per_stage):
             self.stages.append(nn.Sequential(*[ComplexResidualBlock(current_channels, self.activation_fn_class) for _ in range(num_blocks)]))
             if i < len(self.blocks_per_stage) - 1:
-                self.downsample_layers.append(Conv2d(current_channels, current_channels, kernel_size=1, stride=1, bias=False, dtype=torch.complex64))
+                self.downsample_layers.append(ComplexConv2d(current_channels, current_channels, kernel_size=1, stride=1, bias=False))
             current_channels *= 2
         self.final_channels = self.initial_filters * (2**(len(self.blocks_per_stage) - 1))
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -446,7 +445,7 @@ class ComplexResNet(nn.Module):
     def set_input(self, input_channels: int, num_classes:int):
         self.num_classes = num_classes
         self.initial_op = nn.Sequential(
-            Conv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False, dtype=torch.complex64),
+            ComplexConv2d(input_channels, self.initial_filters, kernel_size=3, stride=1, padding=1, bias=False),
             ComplexBatchNorm2d(self.initial_filters),
             self.activation_fn_class()
         )
