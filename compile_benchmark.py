@@ -65,6 +65,8 @@ def run_benchmark():
     """
     Sets up and runs the benchmark for a non-compiled vs. compiled model.
     """
+
+    torch.autograd.set_detect_anomaly(True)
     # --- Configuration ---
     BATCH_SIZE = 64
     IMG_SIZE = 224
