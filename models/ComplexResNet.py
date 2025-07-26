@@ -7,7 +7,7 @@ Purpose: A complex valued resnet based on the model presetned in "Deep Complex N
 import math
 import torch
 import torch.nn as nn
-import torch.nn.Conv2d as Conv2d
+from torch.nn import Conv2d
 import torch.nn.functional as F
 from torch.nn import Parameter
 from complexPyTorch.complexLayers import ComplexLinear
