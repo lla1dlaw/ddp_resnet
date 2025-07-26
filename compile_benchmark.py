@@ -6,7 +6,7 @@ import time
 import warnings
 from models import ComplexResNet, RealResNet
 
-def benchmark(model, input_tensor, model_name, num_iterations=100, warmup_iterations=10):
+def benchmark(model, input_tensor, model_name, num_iterations=10, warmup_iterations=5):
     """
     Runs a benchmark for a given model.
 
