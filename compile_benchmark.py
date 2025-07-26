@@ -101,7 +101,7 @@ def run_benchmark():
     print("Compiling the model with torch.compile()... (This may take a moment)")
     try:
         # The 'inductor' backend is the default and generally the fastest
-        compiled_model = torch.compile(compiled_model, backend="inductor", mode='reduce-overhead')
+        compiled_model = torch.compile(compiled_model, backend="inductor", mode='max-autotune-no-cudagraphs')
         print("Model compiled successfully.\n")
     except Exception as e:
         print(f"Could not compile model: {e}")
