@@ -84,12 +84,12 @@ def run_benchmark():
     # --- Model and Data Setup ---
     # Create random input data to simulate a batch of images
     # The model expects a 4D tensor: (batch_size, channels, height, width)
-    random_data = torch.randn(BATCH_SIZE, 3, IMG_SIZE, IMG_SIZE, dtype=torch.complex64).to(device)
+    random_data = torch.randn(BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE, dtype=torch.complex64).to(device)
 
     # Instantiate two identical models
     # We use pretrained=False because we don't need the actual weights for a runtime benchmark
-    non_compiled_model = ComplexResNet('DN', 'crelu', 4, 7).to(device)
-    compiled_model = ComplexResNet('DN', 'crelu', 4, 7).to(device)
+    non_compiled_model = ComplexResNet('DN', 'crelu', 1, 7).to(device)
+    compiled_model = ComplexResNet('DN', 'crelu', 1, 7).to(device)
     
     # Set models to training mode
     non_compiled_model.train()
