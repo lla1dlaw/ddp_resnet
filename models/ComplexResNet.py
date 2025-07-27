@@ -108,6 +108,21 @@ def abs_softmax(input: torch.tensor) -> torch.tensor:
     return F.softmax(input.abs())
 
 
+# A simple complex dropout module
+class ComplexDropout(nn.Module):
+    def __init__(self, p=0.5):
+        super(ComplexDropout, self).__init__()
+        self.p = p
+
+    def forward(self, x):
+        if not self.training or self.p == 0:
+            return x
+
+        # Create a mask and apply it to both real and imaginary parts
+        mask = torch.ones_like(x.real)
+        mask = F.dropout(mask, self.p, self.training)
+        return torch.complex(x.real * mask, x.imag * mask)
+
 class ModReLU(nn.Module):
     def __init__(self, bias: float = 1.0, inplace: bool = False):
         """ModReLU module. 
@@ -263,19 +278,34 @@ def init_weights(m):
             m.fc_r.weight.copy_(scaled_unitary.real)
             m.fc_i.weight.copy_(scaled_unitary.imag)
 
+class ComplexDropout(nn.Module):
+    def __init__(self, p=0.5):
+        super(ComplexDropout, self).__init__()
+        self.p = p
+
+    def forward(self, x):
+        if not self.training or self.p == 0:
+            return x
+
+        # Create a mask and apply it to both real and imaginary parts
+        mask = torch.ones_like(x.real)
+        mask = F.dropout(mask, self.p, self.training)
+        return torch.complex(x.real * mask, x.imag * mask)
 
 # MODULE: RESIDUAL BLOCKS
 # ========================
 
 class ComplexResidualBlock(nn.Module):
-    def __init__(self, channels, activation_fn_class):
+    def __init__(self, channels, activation_fn_class, dropout_rate: float = 0.5):
         super(ComplexResidualBlock, self).__init__()
         self.bn1 = ComplexBatchNorm2d(channels)
         self.relu1 = activation_fn_class()
         self.conv1 = ComplexConv2d(channels, channels, kernel_size=3, padding=1, bias=False)
         self.bn2 = ComplexBatchNorm2d(channels)
         self.relu2 = activation_fn_class()
+        self.dropout = ComplexDropout(p=dropout_rate)
         self.conv2 = ComplexConv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+
     def forward(self, x):
         identity = x
         out = self.bn1(x)
@@ -283,10 +313,10 @@ class ComplexResidualBlock(nn.Module):
         out = self.conv1(out)
         out = self.bn2(out)
         out = self.relu2(out)
+        out = self.dropout(out)
         out = self.conv2(out)
         out = out + identity
         return out
-
 
 # MODULE: NETWORK ARCHITECTURES
 # ==============================
