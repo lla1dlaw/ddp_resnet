@@ -27,7 +27,11 @@ class ComplexRandomCrop(torch.nn.Module):
     def __init__(self, size, padding=None, pad_if_needed=False, fill=0, padding_mode='constant'):
         super().__init__()
         # Use torchvision's own static method to get parameters
-        self.size = size
+        if isinstance(size, int):
+            self.size = (size, size)
+        else:
+            self.size = size
+            
         self.padding = padding
         self.pad_if_needed = pad_if_needed
         self.fill = fill

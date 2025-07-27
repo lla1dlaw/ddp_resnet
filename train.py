@@ -207,7 +207,6 @@ if __name__ == "__main__":
     rank = int(os.environ["LOCAL_RANK"])
     torch.autograd.set_detect_anomaly(True)
 
-    # --- MODIFIED: Check for test flag ---
     if args.test_run:
         run_test(rank)
     else:
