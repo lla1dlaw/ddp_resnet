@@ -9,6 +9,40 @@ import torchvision.transforms as transforms
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
+import torch.nn.functional as F
+
+class ComplexRandomHorizontalFlip(torch.nn.Module):
+    """Applies a random horizontal flip to a complex tensor."""
+    def __init__(self, p=0.5):
+        super().__init__()
+        self.p = p
+
+    def forward(self, x):
+        if torch.rand(1) < self.p:
+            return torch.flip(x, [-1])  # Flips the last dimension (width)
+        return x
+
+class ComplexRandomCrop(torch.nn.Module):
+    """Applies a random crop to a complex tensor, handling padding correctly."""
+    def __init__(self, size, padding=None, pad_if_needed=False, fill=0, padding_mode='constant'):
+        super().__init__()
+        # Use torchvision's own static method to get parameters
+        self.size = size
+        self.padding = padding
+        self.pad_if_needed = pad_if_needed
+        self.fill = fill
+        self.padding_mode = padding_mode
+
+    def forward(self, x):
+        if self.padding is not None:
+            # Pad real and imaginary parts separately
+            padded_real = F.pad(x.real, (self.padding, self.padding, self.padding, self.padding), self.padding_mode, self.fill)
+            padded_imag = F.pad(x.imag, (self.padding, self.padding, self.padding, self.padding), self.padding_mode, self.fill)
+            x = torch.complex(padded_real, padded_imag)
+
+        # Get crop parameters and apply the crop
+        i, j, h, w = transforms.RandomCrop.get_params(x, output_size=self.size)
+        return transforms.functional.crop(x, i, j, h, w)
 
 
 class S1SLC_CVDL_Dataset(Dataset):
@@ -18,13 +52,15 @@ class S1SLC_CVDL_Dataset(Dataset):
     loading the entire dataset into RAM. It uses numpy's memory-mapping
     for efficient file access.
     """
-    def __init__(self, root_dir: str, base_dir: str, polarization: Optional[str], dtype: str):
+
+    def __init__(self, root_dir: str, base_dir: str, polarization: Optional[str], dtype: str, augment_transform=None, normalize_transform=None):
         super().__init__()
         self.root_dir = root_dir
         self.base_dir = base_dir
         self.polarization = polarization
         self.dtype = dtype
-        self.transform = None # Normalization is set later
+        self.augment_transform = augment_transform
+        self.normalize_transform = normalize_transform
         self.classes = ['AG', 'FR', 'HD', 'HR', 'LD', 'IR', 'WR']
         self.num_classes = len(self.classes)
 
@@ -55,7 +91,6 @@ class S1SLC_CVDL_Dataset(Dataset):
             self.cumulative_sizes.append(self.cumulative_sizes[-1] + num_samples)
 
         if self.polarization is None:
-            # For real dtype, complex data is split into real and imag parts, doubling channels
             self.channels = 4 if self.dtype == 'real' else 2
         else:
             self.channels = 2 if self.dtype == 'real' else 1
@@ -89,19 +124,93 @@ class S1SLC_CVDL_Dataset(Dataset):
             sample = sample_complex.astype(np.complex64)
         
         sample_tensor = torch.from_numpy(sample)
-        if self.transform:
-            sample_tensor = self.transform(sample_tensor)
+
+        if self.augment_transform:
+            sample_tensor = self.augment_transform(sample_tensor)
+
+        if self.normalize_transform:
+            sample_tensor = self.normalize_transform(sample_tensor)
             
         target = torch.tensor(label.squeeze() - 1, dtype=torch.long)
         
         return sample_tensor, target
 
-    def set_normalization(self, mean, std):
-        if self.dtype == 'real':
-            self.transform = transforms.Normalize(mean, std)
-        else:
-            self.transform = ComplexNormalize(mean, std)
 
+def S1SLC_CVDL(
+        root: Union[str, Path],
+        polarization: str,
+        dtype: str,
+        split: Optional[Iterable] = None,
+        **kwargs
+) -> list[Subset]:
+    
+    _validate_args(root, "S1SLC_CVDL", polarization, split)
+
+    is_distributed = dist.is_available() and dist.is_initialized()
+    rank = dist.get_rank() if is_distributed else 0
+    world_size = dist.get_world_size() if is_distributed else 1
+    
+    # 1. Create a base dataset instance *without transforms* to calculate stats
+    base_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
+    
+    # We only need to calculate stats on the training portion
+    train_indices, _, _ = random_split(range(len(base_dataset)), split, generator=torch.Generator().manual_seed(42))
+    stats_subset = Subset(base_dataset, train_indices)
+
+    stats_loader = DataLoader(
+        stats_subset,
+        batch_size=kwargs.get('stats_batch_size', 256),
+        sampler=DistributedSampler(stats_subset, num_replicas=world_size, rank=rank, shuffle=False)
+    )
+    
+    if rank == 0:
+        print(f"Calculating normalization stats in parallel across {world_size} ranks...")
+    
+    mean_val, std_val = _calculate_distributed_stats(stats_loader, base_dataset.channels, dtype, rank)
+
+    # 2. Define augmentations and normalization transforms
+    patch_size = 32 # Assuming S1SLC patches are 32x32
+    if dtype == 'real':
+        mean_for_norm = np.concatenate([mean_val.real, mean_val.imag])
+        std_for_norm = np.concatenate([std_val, std_val])
+        
+        augment_transform = transforms.Compose([
+            transforms.RandomCrop(patch_size, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ])
+        normalize_transform = transforms.Normalize(mean_for_norm, std_for_norm)
+    else: # complex
+        augment_transform = transforms.Compose([
+            ComplexRandomCrop(patch_size, padding=4),
+            ComplexRandomHorizontalFlip(),
+        ])
+        normalize_transform = ComplexNormalize(mean_val, std_val)
+
+    # 3. Create separate dataset instances for train and eval
+    # This ensures augmentations are ONLY applied to the training set
+    train_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype, 
+                                       augment_transform=augment_transform, 
+                                       normalize_transform=normalize_transform)
+    
+    eval_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype, 
+                                      augment_transform=None, # No augmentation for eval
+                                      normalize_transform=normalize_transform)
+
+    if rank == 0:
+        print("Augmentation and normalization transforms created.")
+
+    # 4. Create the final train/val/test splits using the correct dataset instances
+    train_set = Subset(train_dataset, train_indices)
+    
+    # Use the same generator seed to ensure consistent splits
+    _, val_indices, test_indices = random_split(range(len(base_dataset)), split, generator=torch.Generator().manual_seed(42))
+    val_set = Subset(eval_dataset, val_indices)
+    test_set = Subset(eval_dataset, test_indices)
+
+    if is_distributed:
+        dist.barrier()
+
+    return [train_set, val_set, test_set]
 class ComplexNormalize:
     def __init__(self, mean: np.ndarray, std: np.ndarray):
         self.mean = torch.from_numpy(mean).cfloat()
@@ -157,58 +266,6 @@ def _calculate_distributed_stats(data_loader: DataLoader, num_channels: int, dty
 
     return mean.cpu().numpy(), std.cpu().numpy()
 
-
-def S1SLC_CVDL(
-        root: Union[str, Path],
-        polarization: str,
-        dtype: str,
-        split: Optional[Iterable] = None,
-        **kwargs
-) -> list[Subset]:
-    
-    _validate_args(root, "S1SLC_CVDL", polarization, split)
-
-    is_distributed = dist.is_available() and dist.is_initialized()
-    rank = dist.get_rank() if is_distributed else 0
-    world_size = dist.get_world_size() if is_distributed else 1
-    
-    full_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
-    
-    # Split the dataset indices before calculating stats
-    train_set, val_set, test_set = random_split(full_dataset, split, generator=torch.Generator().manual_seed(42))
-
-    # Create a temporary DataLoader for the training set to calculate stats
-    stats_loader = DataLoader(
-        train_set,
-        batch_size=kwargs.get('stats_batch_size', 256),
-        sampler=DistributedSampler(train_set, num_replicas=world_size, rank=rank, shuffle=False)
-    )
-    
-    if rank == 0:
-        print(f"Calculating normalization stats in parallel across {world_size} ranks...")
-    
-    # All ranks participate in the calculation
-    mean_val, std_val = _calculate_distributed_stats(stats_loader, full_dataset.channels, dtype, rank)
-
-    # Adapt stats for the 'real' model type if needed
-    if dtype == 'real':
-        # For real networks, mean is split and std is duplicated for real/imag channels
-        mean_for_norm = np.concatenate([mean_val.real, mean_val.imag])
-        std_for_norm = np.concatenate([std_val, std_val])
-    else:
-        mean_for_norm = mean_val
-        std_for_norm = std_val
-
-    # Set the normalization transform on the root dataset object
-    full_dataset.set_normalization(mean_for_norm, std_for_norm)
-    
-    if rank == 0:
-        print("Normalization stats applied.")
-    
-    if is_distributed:
-        dist.barrier()
-
-    return [train_set, val_set, test_set]
 
 
 def _validate_args(root_dir: str, base_dir:str, polarization: Optional[str], training_split: Iterable[float]) -> None:
