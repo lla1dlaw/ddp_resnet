@@ -36,13 +36,13 @@ def init_weights(m):
 
 
 class RealResidualBlock(nn.Module):
-    def __init__(self, channels: int):
-        """Single real-valued residual block. 
+    def __init__(self, channels: int, dropout_rate: float = 0.2):
+        """Single real-valued residual block.
 
         Defines one real valued residual block consisting of the following operations: input -> BN -> ReLU -> Conv2d -> BN -> ReLU -> Conv2d + input (original input tensor)
 
         Args:
-            channels: The number of channels in the input data. 
+            channels: The number of channels in the input data.
         """
         super(RealResidualBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(channels)
@@ -50,7 +50,9 @@ class RealResidualBlock(nn.Module):
         self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(channels)
         self.relu2 = nn.ReLU(inplace=False)
+        self.dropout = nn.Dropout(p=dropout_rate)
         self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+
     def forward(self, x):
         identity = x
         out = self.bn1(x)
@@ -58,32 +60,37 @@ class RealResidualBlock(nn.Module):
         out = self.conv1(out)
         out = self.bn2(out)
         out = self.relu2(out)
+        out = self.dropout(out)
         out = self.conv2(out)
         out = out + identity
         return out
 
-
 class RealResNet(nn.Module):
-    def __init__(self, architecture_type: str, input_channels: int, num_classes: int):
+    # MODIFIED LINE: Add dropout_rate to the constructor
+    def __init__(self, architecture_type: str, input_channels: int, num_classes: int, dropout_rate: float = 0.2):
         """Real-Valued Convolutional Residual Network.
 
         RVCNN Based on the network presented in "Deep Complex Networks", Trabelsi et al. 2018.
-        Meant to be used for comparison with its complex varient. 
+        Meant to be used for comparison with its complex varient.
 
         Args:
-            architecture_type: The the width and depth of the residual stages of the network. Options are: 
+            architecture_type: The the width and depth of the residual stages of the network. Options are:
                 - 'WS' (wide shallow) | 18 convolutional filters with 14 blocks per stage.
                 - 'DN' (deep narrow) | 14 convolutional filters with 23 blocks per stage.
-                - 'IB' (in-between) | 16 convolutional filters with 18 blocks per stage. 
+                - 'IB' (in-between) | 16 convolutional filters with 18 blocks per stage.
             input_channels: The number of input channels the network should expect. Defaults to 3.
             num_classes The number of classes to classify into. Defaults to 10.
         """
         super(RealResNet, self).__init__()
         self.num_classes = num_classes
         self.input_channels = input_channels
-        #configs = {'WS': {'filters': 18, 'blocks_per_stage': [14, 14, 14]}, 'DN': {'filters': 14, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 16, 'blocks_per_stage': [18, 18, 18]}}
-        # compressed resnet
-        configs = {'WS': {'filters': 18, 'blocks_per_stage': [14, 14, 14]}, 'DN': {'filters': 14, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 16, 'blocks_per_stage': [18, 18, 18]}}
+        self.dropout_rate = dropout_rate
+
+        configs = {
+            'WS': {'filters': 13, 'blocks_per_stage': [4, 4, 4]},
+            'DN': {'filters': 11, 'blocks_per_stage': [5, 5, 5]}, 
+            'IB': {'filters': 12, 'blocks_per_stage': [4, 4, 4]}, 
+        }
 
         config = configs[architecture_type]
         self.initial_filters = config['filters']
@@ -97,7 +104,9 @@ class RealResNet(nn.Module):
         self.downsample_layers = nn.ModuleList()
         current_channels = self.initial_filters
         for i, num_blocks in enumerate(self.blocks_per_stage):
-            self.stages.append(nn.Sequential(*[RealResidualBlock(current_channels) for _ in range(num_blocks)]))
+            stage = nn.Sequential(*[RealResidualBlock(current_channels, dropout_rate=self.dropout_rate) for _ in range(num_blocks)])
+            self.stages.append(stage)
+            
             if i < len(self.blocks_per_stage) - 1:
                 self.downsample_layers.append(nn.Conv2d(current_channels, current_channels, kernel_size=1, stride=1, bias=False))
             current_channels *= 2
@@ -131,4 +140,3 @@ class RealResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
-

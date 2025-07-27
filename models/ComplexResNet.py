@@ -110,7 +110,7 @@ def abs_softmax(input: torch.tensor) -> torch.tensor:
 
 # A simple complex dropout module
 class ComplexDropout(nn.Module):
-    def __init__(self, p=0.5):
+    def __init__(self, p=0.3):
         super(ComplexDropout, self).__init__()
         self.p = p
 
@@ -433,13 +433,19 @@ class ComplexBatchNorm2d(nn.Module):
                 f'track_running_stats={self.track_running_stats})')
 
 class ComplexResNet(nn.Module):
-    def __init__(self, architecture_type: str, activation_function: str, input_channels: int, num_classes: int):
+    # MODIFIED LINE: Add dropout_rate to the constructor
+    def __init__(self, architecture_type: str, activation_function: str, input_channels: int, num_classes: int, dropout_rate: float = 0.2):
         super(ComplexResNet, self).__init__()
         self.num_classes = num_classes
         self.input_channels = input_channels
-        #configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
-        # compressed resnet
-        configs = {'WS': {'filters': 12, 'blocks_per_stage': [16, 16, 16]}, 'DN': {'filters': 10, 'blocks_per_stage': [23, 23, 23]}, 'IB': {'filters': 11, 'blocks_per_stage': [19, 19, 19]}}
+        
+        self.dropout_rate = dropout_rate
+        
+        configs = {
+            'WS': {'filters': 10, 'blocks_per_stage': [3, 3, 3]}, 
+            'DN': {'filters': 8,  'blocks_per_stage': [4, 4, 4]},
+            'IB': {'filters': 9,  'blocks_per_stage': [4, 4, 4]}, 
+        }
 
         config = configs[architecture_type]
         self.initial_filters = config['filters']
@@ -458,7 +464,10 @@ class ComplexResNet(nn.Module):
         self.downsample_layers = nn.ModuleList()
         current_channels = self.initial_filters
         for i, num_blocks in enumerate(self.blocks_per_stage):
-            self.stages.append(nn.Sequential(*[ComplexResidualBlock(current_channels, self.activation_fn_class) for _ in range(num_blocks)]))
+            # MODIFIED LINE: Pass the dropout_rate to the ComplexResidualBlock
+            stage = nn.Sequential(*[ComplexResidualBlock(current_channels, self.activation_fn_class, dropout_rate=self.dropout_rate) for _ in range(num_blocks)])
+            self.stages.append(stage)
+            
             if i < len(self.blocks_per_stage) - 1:
                 self.downsample_layers.append(ComplexConv2d(current_channels, current_channels, kernel_size=1, stride=1, bias=False))
             current_channels *= 2
@@ -501,5 +510,3 @@ class ComplexResNet(nn.Module):
         x = torch.cat([magnitude, phase], dim=1)
         logits = self.fc(x)
         return logits
-
-
