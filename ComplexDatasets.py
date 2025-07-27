@@ -143,18 +143,20 @@ def S1SLC_CVDL(
         split: Optional[Iterable] = None,
         **kwargs
 ) -> list[Subset]:
-    
+
     _validate_args(root, "S1SLC_CVDL", polarization, split)
 
     is_distributed = dist.is_available() and dist.is_initialized()
     rank = dist.get_rank() if is_distributed else 0
     world_size = dist.get_world_size() if is_distributed else 1
-    
+
     # 1. Create a base dataset instance *without transforms* to calculate stats
     base_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype)
-    
+
     # We only need to calculate stats on the training portion
-    train_indices, _, _ = random_split(range(len(base_dataset)), split, generator=torch.Generator().manual_seed(42))
+    # Use a generator for reproducible splits
+    generator = torch.Generator().manual_seed(42)
+    train_indices, val_indices, test_indices = random_split(range(len(base_dataset)), split, generator=generator)
     stats_subset = Subset(base_dataset, train_indices)
 
     stats_loader = DataLoader(
@@ -162,37 +164,38 @@ def S1SLC_CVDL(
         batch_size=kwargs.get('stats_batch_size', 256),
         sampler=DistributedSampler(stats_subset, num_replicas=world_size, rank=rank, shuffle=False)
     )
-    
+
     if rank == 0:
         print(f"Calculating normalization stats in parallel across {world_size} ranks...")
-    
+
     mean_val, std_val = _calculate_distributed_stats(stats_loader, base_dataset.channels, dtype, rank)
 
     # 2. Define augmentations and normalization transforms
     patch_size = 32 # Assuming S1SLC patches are 32x32
     if dtype == 'real':
-        mean_for_norm = np.concatenate([mean_val.real, mean_val.imag])
-        std_for_norm = np.concatenate([std_val, std_val])
-        
+        # FIX: The mean_val and std_val are already correct for the real case.
+        # No further processing is needed.
+        normalize_transform = transforms.Normalize(mean_val, std_val)
+
         augment_transform = transforms.Compose([
             transforms.RandomCrop(patch_size, padding=4),
             transforms.RandomHorizontalFlip(),
         ])
-        normalize_transform = transforms.Normalize(mean_for_norm, std_for_norm)
-    else: # complex
+    else: # 'complex'
+        normalize_transform = ComplexNormalize(mean_val, std_val)
+
         augment_transform = transforms.Compose([
             ComplexRandomCrop(patch_size, padding=4),
             ComplexRandomHorizontalFlip(),
         ])
-        normalize_transform = ComplexNormalize(mean_val, std_val)
 
     # 3. Create separate dataset instances for train and eval
     # This ensures augmentations are ONLY applied to the training set
-    train_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype, 
-                                       augment_transform=augment_transform, 
+    train_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype,
+                                       augment_transform=augment_transform,
                                        normalize_transform=normalize_transform)
-    
-    eval_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype, 
+
+    eval_dataset = S1SLC_CVDL_Dataset(root, "S1SLC_CVDL", polarization, dtype,
                                       augment_transform=None, # No augmentation for eval
                                       normalize_transform=normalize_transform)
 
@@ -201,9 +204,6 @@ def S1SLC_CVDL(
 
     # 4. Create the final train/val/test splits using the correct dataset instances
     train_set = Subset(train_dataset, train_indices)
-    
-    # Use the same generator seed to ensure consistent splits
-    _, val_indices, test_indices = random_split(range(len(base_dataset)), split, generator=torch.Generator().manual_seed(42))
     val_set = Subset(eval_dataset, val_indices)
     test_set = Subset(eval_dataset, test_indices)
 
@@ -211,6 +211,8 @@ def S1SLC_CVDL(
         dist.barrier()
 
     return [train_set, val_set, test_set]
+
+
 class ComplexNormalize:
     def __init__(self, mean: np.ndarray, std: np.ndarray):
         self.mean = torch.from_numpy(mean).cfloat()
