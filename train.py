@@ -171,7 +171,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
         else: # 'real'
             model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True, weight_decay=1e-5)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_epochs)
 
         if rank == 0:
