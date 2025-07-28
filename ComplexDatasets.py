@@ -175,7 +175,7 @@ def S1SLC_CVDL(
     mean_val, std_val = _calculate_distributed_stats(stats_loader, base_dataset.channels, dtype, rank)
 
     # 2. Define augmentations and normalization transforms
-    patch_size = 32 # Assuming S1SLC patches are 32x32
+    patch_size = 100 # Assuming S1SLC patches are 32x32
     if dtype == 'real':
         # FIX: The mean_val and std_val are already correct for the real case.
         # No further processing is needed.
