@@ -442,9 +442,9 @@ class ComplexResNet(nn.Module):
         self.dropout_rate = dropout_rate
         
         configs = {
-            'WS': {'filters': 10, 'blocks_per_stage': [3, 3, 3]}, 
-            'DN': {'filters': 8,  'blocks_per_stage': [4, 4, 4]},
-            'IB': {'filters': 9,  'blocks_per_stage': [4, 4, 4]}, 
+            'WS': {'filters': 14, 'blocks_per_stage': [3, 3, 3]}, 
+            'DN': {'filters': 11,  'blocks_per_stage': [5, 5, 5]},
+            'IB': {'filters': 12,  'blocks_per_stage': [4, 4, 4]}, 
         }
 
         config = configs[architecture_type]
