@@ -155,7 +155,7 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
     else: # Use the provided dataloaders (test mode)
         effective_dataset_name = dataset_name
 
-    base_lr = 0.1
+    base_lr = 0.01
     lr = base_lr
 
     if rank == 0:
@@ -167,11 +167,11 @@ def main(rank: int, save_every: int, total_epochs: int, dataset_name: str, batch
             print(f"- Initializing model...")
 
         if model_type == 'complex':
-            model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation)
+            model = ComplexResNet(arch, input_channels=num_channels, num_classes=num_classes, activation_function=activation, dropout_rate=0.5)
         else: # 'real'
-            model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes)
+            model = RealResNet(arch, input_channels=num_channels, num_classes=num_classes, dropout_rate=0.5)
 
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True, weight_decay=1e-5)
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, nesterov=True, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_epochs)
 
         if rank == 0:
